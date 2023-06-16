@@ -1,4 +1,4 @@
-import {Registers} from "./registers.mjs"
+import {Registers} from "./registers.js"
 /**
  * Decodes instructions
  * 
@@ -27,17 +27,17 @@ export function decodeInstruction(instruction) {
     switch(inst) {
         case Instruction.lui:
         case Instruction.auipc:
-            return new rv32i_u_instruction(inst, tail);
+            return new rv32i_u_instruction(instruction, inst, tail);
 
         case Instruction.jal:
-            return new rv32i_j_instruction(inst, tail);
+            return new rv32i_j_instruction(instruction, inst, tail);
 
         case Instruction.lb:
         case Instruction.lh:
         case Instruction.lw:
         case Instruction.lbu:
         case Instruction.lhu:
-            return new rv32i_l_instruction(inst, tail);
+            return new rv32i_l_instruction(instruction, inst, tail);
         case Instruction.jalr:
         case Instruction.addi:
         case Instruction.slti:
@@ -48,7 +48,7 @@ export function decodeInstruction(instruction) {
         case Instruction.slli:
         case Instruction.srli:
         case Instruction.srai:
-            return new rv32i_i_instruction(inst, tail);
+            return new rv32i_i_instruction(instruction, inst, tail);
 
         case Instruction.beq:
         case Instruction.bne:
@@ -56,12 +56,12 @@ export function decodeInstruction(instruction) {
         case Instruction.bge:
         case Instruction.bltu:
         case Instruction.bgeu:
-            return new rv32i_b_instruction(inst, tail);
+            return new rv32i_b_instruction(instruction, inst, tail);
 
         case Instruction.sb:
         case Instruction.sh:
         case Instruction.sw:
-            return new rv32i_s_instruction(inst, tail);
+            return new rv32i_s_instruction(instruction, inst, tail);
 
         case Instruction.add:
         case Instruction.sub:
@@ -73,7 +73,7 @@ export function decodeInstruction(instruction) {
         case Instruction.sltu:
         case Instruction.srl:
         case Instruction.sra:
-            return new rv32i_r_instruction(inst, tail);
+            return new rv32i_r_instruction(instruction, inst, tail);
     }
 }
 
@@ -81,12 +81,20 @@ export function decodeInstruction(instruction) {
  * Base class for RV32I instructions
  */
 export class rv32i_instruction {
-    constructor(inst, rd, rs1, rs2, immed) {
+    constructor(code, inst, rd, rs1, rs2, immed) {
+        this._code = code;
         this._inst = inst;
         this._rd = rd;
         this._rs1 = rs1;
         this._rs2 = rs2;
         this._immed = immed;
+    }
+
+    /**
+     * Code
+     */
+    get code() {
+        return this._code;
     }
 
     /**
@@ -134,9 +142,9 @@ export class rv32i_r_instruction extends rv32i_instruction {
      * @param {Instruction} inst 
      * @param {String} tail 
      */
-    constructor(inst, tail) {
+    constructor(code, inst, tail) {
         const { groups: { rd, rs1, rs2 }} = /(?<rd>[a-z][a-z0-9]+), (?<rs1>[a-z][a-z0-9]+), (?<rs2>[a-z][a-z0-9]+)/.exec(tail);
-        super(inst, Registers[rd], Registers[rs1], Registers[rs2], 0);
+        super(code, inst, Registers[rd], Registers[rs1], Registers[rs2], 0);
     }
 }
 
@@ -149,9 +157,9 @@ export class rv32i_i_instruction extends rv32i_instruction {
      * @param {Instruction} inst 
      * @param {String} tail 
      */
-    constructor(inst, tail) {
+    constructor(code, inst, tail) {
         const { groups: { rd, rs1, immed }} = /(?<rd>[a-z][a-z0-9]+), (?<rs1>[a-z][a-z0-9]+), (?<immed>-?[0-9]+)/.exec(tail);
-        super(inst, Registers[rd], Registers[rs1], Registers.zero, Number(immed));
+        super(code, inst, Registers[rd], Registers[rs1], Registers.zero, Number(immed));
     }
 }
 
@@ -164,9 +172,9 @@ export class rv32i_l_instruction extends rv32i_instruction {
      * @param {Instruction} inst 
      * @param {String} tail 
      */
-    constructor(inst, tail) {
+    constructor(code, inst, tail) {
         const { groups: { rd, rs1, immed }} = /(?<rd>[a-z][a-z0-9]+), (?<immed>-?[0-9]+)\((?<rs1>[a-z][a-z0-9]+)\)/.exec(tail);
-        super(inst, Registers[rd], Registers[rs1], Registers.zero, Number(immed));
+        super(code, inst, Registers[rd], Registers[rs1], Registers.zero, Number(immed));
     }
 }
 
@@ -179,9 +187,9 @@ export class rv32i_b_instruction extends rv32i_instruction {
      * @param {Instruction} inst 
      * @param {String} tail 
      */
-    constructor(inst, tail) {
+    constructor(code, inst, tail) {
         const { groups: { rs1, rs2, immed }} = /(?<rs1>[a-z][a-z0-9]+), (?<rs2>[a-z][a-z0-9]+), (?<immed>-?[0-9]+)/.exec(tail);
-        super(inst, Registers.zero, Registers[rs1], Registers[rs2], Number(immed));
+        super(code, inst, Registers.zero, Registers[rs1], Registers[rs2], Number(immed));
     }
 }
 
@@ -194,9 +202,9 @@ export class rv32i_j_instruction extends rv32i_instruction {
      * @param {Instruction} inst 
      * @param {String} tail 
      */
-    constructor(inst, tail) {
+    constructor(code, inst, tail) {
         const { groups: { rd, immed }} = /(?<rd>[a-z][a-z0-9]+), (?<immed>-?[0-9]+)/.exec(tail);
-        super(inst, Registers[rd], Registers.zero, Registers.zero, Number(immed));
+        super(code, inst, Registers[rd], Registers.zero, Registers.zero, Number(immed));
     }
 }
 
@@ -209,9 +217,9 @@ export class rv32i_u_instruction extends rv32i_instruction {
      * @param {Instruction} inst
      * @param {String} tail 
      */
-    constructor(inst, tail) {
+    constructor(code, inst, tail) {
         const { groups: { rd, immed }} = /(?<rd>[a-z][a-z0-9]+), (?<immed>-?[0-9]+)/.exec(tail);
-        super(inst, Registers[rd], Registers.zero, Registers.zero, Number(immed));
+        super(code, inst, Registers[rd], Registers.zero, Registers.zero, Number(immed));
     }
 }
 
@@ -224,9 +232,9 @@ export class rv32i_s_instruction extends rv32i_instruction {
      * @param {Instruction} inst 
      * @param {String} tail 
      */
-    constructor(inst, tail) {
+    constructor(code, inst, tail) {
         const { groups: { rs1, rs2, immed }} = /(?<rs2>[a-z][a-z0-9]+), (?<immed>-?[0-9]+)\((?<rs1>[a-z][a-z0-9]+)\)/.exec(tail);
-        super(inst, Registers.zero, Registers[rs1], Registers[rs2], Number(immed));
+        super(code, inst, Registers.zero, Registers[rs1], Registers[rs2], Number(immed));
     }
 }
 

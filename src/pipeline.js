@@ -1,4 +1,4 @@
-import { Registers } from "./registers.mjs"
+import { Registers } from "./registers.js"
 import {
     rv32i_b_instruction,
     rv32i_i_instruction,
@@ -7,7 +7,7 @@ import {
     rv32i_s_instruction,
     rv32i_u_instruction,
     Instruction
-} from "./instruction.mjs"
+} from "./instruction.js"
 
 export class Pipeline {
     /**
