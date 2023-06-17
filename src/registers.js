@@ -1,7 +1,7 @@
 /**
  * A dictionary mapping logical register names in to indeces
  */
-export const Registers = Object.freeze({
+export const Register = Object.freeze({
     //Hard-wired zero
     "x0"   : 0,
     "zero" : 0,

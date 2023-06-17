@@ -26,3 +26,27 @@ export function compareUnsigned(a, b) {
     }
     return 0;
 }
+
+export function byteToSigned(b) {
+    b &= 0xFF;
+    if((b & (1 << 7)) != 0) {
+        b |= 0xFFFFFF00;
+    }
+    return b;
+}
+
+export function byteToUnsigned(b) {
+    return b & 0xFF;
+}
+
+export function halfwordToSigned(h) {
+    h &= 0xFFFF;
+    if((h & (1 << 15)) != 0) {
+        h |= 0xFFFF0000;
+    }
+    return h;
+}
+
+export function halfwordToUnsigned(h) {
+    return h & 0xFFFF;
+}

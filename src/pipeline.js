@@ -1,13 +1,6 @@
-import { Registers } from "./registers.js"
-import {
-    rv32i_b_instruction,
-    rv32i_i_instruction,
-    rv32i_j_instruction,
-    rv32i_r_instruction,
-    rv32i_s_instruction,
-    rv32i_u_instruction,
-    Instruction
-} from "./instruction.js"
+import { Register } from "./registers.js"
+import { Format, Instruction } from "./instruction.js"
+import { byteToSigned, byteToUnsigned, compareSigned, compareUnsigned, halfwordToSigned, halfwordToUnsigned } from "./util.js";
 
 export class Pipeline {
     /**
@@ -25,7 +18,6 @@ export class Pipeline {
         this._deDataB = 0;
         this._deRegDataA = 0;
         this._deRegDataB = 0;
-        this._deImmed = 0;
         this._dePC = 0;
         this._deDataABypassSel = false;
         this._deDataBBypassSel = false;
@@ -37,7 +29,6 @@ export class Pipeline {
         this._exStoreData = 0;
         this._exBranchAddr = 0;
         this._exBranchBase = 0;
-        this._exImmed = 0;
         this._exBranchTaken = false;
         this._exPC = 0;
         //Memory access
@@ -69,52 +60,51 @@ export class Pipeline {
         }
     }
 
+    /**
+     * Read the value from the specified register
+     * @param {Number} reg 
+     * @returns 
+     */
     readRegister(reg) {
         return this._registers[reg];
     }
 
+    /**
+     * Store the provided value in to the specified register
+     * @param {Number} reg 
+     * @param {Number} data 
+     */
     writeRegister(reg, data) {
         if (reg != 0) {
             this._registers[reg] = data;
         }
     }
 
+    /**
+     * Read the next instruction from the address specified by PC
+     * @param {Number} pc 
+     * @returns 
+     */
     readInstruction(pc) {
         return this._instructionMemory[Math.floor(pc / 4)];
     }
 
-    readData(addr, size) {
-        let val = this._dataMemory[Math.floor(addr / 4)];
-        if (size == 1) {
-            val >>>= 8 * (3 - addr % 4);
-            return val &= 0xFF;
-        } else if (size == 2) {
-            val >>>= 8 * (3 - addr % 4);
-            return val &= 0xFFFF;
-        } else {
-            return val;
-        }
-        //TODO: unsigned
+    /**
+     * Read the value from the memory 
+     * @param {Number} addr 
+     * @returns 
+     */
+    readData(addr) {
+        return this._dataMemory[Math.floor(addr / 4)];
     }
 
-
-    writeData(addr, size, data) {
-        let val = this._dataMemory[Math.floor(addr / 4)];
-        let mask = 0xFFFFFFFF;
-        if (size == 1) {
-            mask = 0xFF;
-            data &= mask;
-        } else if (size == 2) {
-            mask = 0xFFFF;
-            data &= mask;
-        }
-        data <<= 8 * (3 - addr % 4);
-        mask <<= 8 * (3 - addr % 4);
-
-        val &= ~mask;
-        val |= data;
-
-        this._dataMemory[Math.floor(addr / 4)] = val;
+    /**
+     * Stores the provided data in to the data memory on the specified location
+     * @param {Number} addr 
+     * @param {Number} data 
+     */
+    writeData(addr, data) {
+        this._dataMemory[Math.floor(addr / 4)] = data;
     }
 
     /**
@@ -124,23 +114,31 @@ export class Pipeline {
         this.writeBackStage();
         this.memoryAccessStage();
         if (this._dataHazard) {
+            //If there is a data hazard flush the execute stage
             this._dataHazard = false;
             this.flushExecute();
         } else {
             this.executeStage();
         }
         if (this._exBranchTaken) {
+            //If there is a branch flush the instruction fetch and decode stages
             this.flushFetchAndDecode();
         } else {
             this.decodeStage();
             this.instructionFetchStage();
         }
+        //Store the data from the write back stage in to the register unit
         this.writeRegister(this._wbInst?.rd ?? 0, this._wbStoreData);
-        if(!this._dataHazard) {
+
+        if (!this._dataHazard) {
+            //If there isn't a data hazard update the PC
             this._pc = (this._exBranchTaken) ? this._exBranchAddr : this._pc + 4;
         }
     }
 
+    /**
+     * Resets the execute stage to default values
+     */
     flushExecute() {
         this._exInst = null;
         this._dataHazard = false;
@@ -148,21 +146,21 @@ export class Pipeline {
         this._exBranchAddr = 0;
         this._exBranchTaken = false;
         this._exBranchBase = 0;
-        this._exImmed = 0;
         this._exDataA = 0;
         this._exDataB = 0;
         this._exPC = 0;
         this._exStoreData = 0;
     }
 
+    /**
+     * Resets the fetch and decode stages to default values
+     */
     flushFetchAndDecode() {
         this._deInst = null;
         this._dePC = 0;
         this._dataHazard = 0;
         this._deDataABypassSel = false;
         this._deDataBBypassSel = false;
-        this._deRegA = 0;
-        this._deRegB = 0;
         this._deRegDataA = 0;
         this._deRegDataB = 0;
         this._deDataA = 0;
@@ -171,11 +169,17 @@ export class Pipeline {
         this._ifInst = null;
     }
 
+    /**
+     * Performs operations in the fetch stage
+     */
     instructionFetchStage() {
         this._ifPC = this._pc;
         this._ifInst = this.readInstruction(this._ifPC);
     }
 
+    /**
+     * Performs operations in the decode stage
+     */
     decodeStage() {
         this._deInst = this._ifInst;
         this._dePC = this._ifPC;
@@ -186,25 +190,29 @@ export class Pipeline {
         this._deDataABypassSel = rs1Use;
         this._deDataBBypassSel = rs2Use;
 
-        this._deRegDataA = this.readRegister(this._deRegA);
-        this._deRegDataB = this.readRegister(this._deRegB);
+        this._deRegDataA = this.readRegister(this.deRS1);
+        this._deRegDataB = this.readRegister(this.deRS2);
         this._deDataA = (this._deDataABypassSel) ? rs1Data : this._deRegDataA;
         this._deDataB = (this._deDataBBypassSel) ? rs2Data : this._deRegDataB;
-        this._deImmed = this._deInst?.immed ?? 0;
     }
 
+    /**
+     * Performs operations in the execute stage
+     */
     executeStage() {
         this._exInst = this._deInst;
         this._exPC = this._dePC;
-        [this._exDataA, this._exDataB] = this.getExData();
+        [this._exDataA, this._exDataB] = this.getExecuteOperands();
         this._exStoreData = this._deDataB;
-        this._exImmed = this._deImmed;
         this._exAluData = this.executeAluOperation();
         this._exBranchBase = this.getBranchBase();
         this._exBranchTaken = this.getBranchTaken();
-        this._exBranchAddr = this._exBranchBase + this._exImmed;
+        this._exBranchAddr = this._exBranchBase + this.exImmed;
     }
 
+    /**
+     * Performs operations in the memory access stage
+     */
     memoryAccessStage() {
         this._maInst = this._exInst;
         this._maPC = this._exPC;
@@ -216,6 +224,9 @@ export class Pipeline {
         this._maWriteBackData = (this._maLoadOp) ? this._maLoadData : this._maAluData;
     }
 
+    /**
+     * Performs operations in the write back stage
+     */
     writeBackStage() {
         this._wbInst = this._maInst;
         this._wbPC = this._maPC;
@@ -258,7 +269,7 @@ export class Pipeline {
         if (this._deInst != null) {
 
             //RS1
-            if (this._deInst.rs1 != Registers.zero) {
+            if (this._deInst.rs1 != Register.zero) {
                 if (this._exInst != null && this._deInst.rs1 == this._exInst.rd) {
                     let valid = !this.isLoadInstruction(this._exInst);
                     rs1Bypass = [valid, true, this._exAluData];
@@ -271,7 +282,7 @@ export class Pipeline {
 
 
             //RS2
-            if (this._deInst.rs2 != Registers.zero) {
+            if (this._deInst.rs2 != Register.zero) {
                 if (this._exInst != null && this._deInst.rs2 == this._exInst.rd) {
                     let valid = !this.isLoadInstruction(this._exInst);
                     rs2Bypass = [valid, true, this._exAluData];
@@ -285,6 +296,10 @@ export class Pipeline {
         return [rs1Bypass, rs2Bypass];
     }
 
+    /**
+     * Executes the ALU operation and returns the result
+     * @returns Alu result
+     */
     executeAluOperation() {
         if (this._exInst == null) {
             return 0;
@@ -323,17 +338,15 @@ export class Pipeline {
                 case Instruction.blt:
                 case Instruction.slt:
                 case Instruction.slti:
-                    return (this._exDataA < this._exDataB) ? 1 : 0;
+                    return (compareSigned(this._exDataA < this._exDataB) < 0) ? 1 : 0;
                 case Instruction.bltu:
                 case Instruction.sltu:
                 case Instruction.sltui:
-                    //TODO: Fix unsigned
-                    return (this._exDataA < this._exDataB) ? 1 : 0;
+                    return (compareUnsigned(this._exDataA, this._exDataB) < 0) ? 1 : 0;
                 case Instruction.bge:
-                    return (this._exDataA >= this._exDataB) ? 1 : 0;
+                    return (compareSigned(this._exDataA >= this._exDataB) >= 0) ? 1 : 0;
                 case Instruction.bgeu:
-                    //TODO: Fix unsigned
-                    return (this._exDataA >= this._exDataB) ? 1 : 0;
+                    return (compareUnsigned(this._exDataA >= this._exDataB) >= 0) ? 1 : 0;
                 case Instruction.sll:
                 case Instruction.slli:
                     return this._exDataA << this._exDataB;
@@ -347,36 +360,65 @@ export class Pipeline {
         }
     }
 
-    executeMemoryOperation() {
+    /**
+     * Executes the memory operation and returns the result
+     * @returns Mem result
+     */
+    executeMemoryOperation() {  
         if (this._exInst == null) {
             return 0;
         } else {
+            const addr = this._maAddr;
             switch (this._exInst.instruction) {
-                case Instruction.lb:
-                    return this.readData(this._maAddr, 1);
-                case Instruction.lh:
-                    return this.readData(this._maAddr, 2);
-                case Instruction.lw:
-                    return this.readData(this._maAddr, 4);
-                case Instruction.lbu:
-                    return this.readData(this._maAddr, 1);
-                case Instruction.lhu:
-                    return this.readData(this._maAddr, 2);
-                case Instruction.sb:
-                    this.writeData(this._maAddr, 1, this._maStoreData);
+                case Instruction.lb: {
+                    const data = this.readData(addr);
+                    return byteToSigned(data >>> (8 * (3 - addr % 4)));
+                }
+                case Instruction.lh: {
+                    const data = this.readData(addr);
+                    return halfwordToSigned(data >>> (8 * (3 - addr % 4)));
+                }
+                case Instruction.lw: {
+                    return this.readData(addr);
+                }
+                case Instruction.lbu: {
+                    const data = this.readData(addr);
+                    return byteToUnsigned(data >>> (8 * (3 - addr % 4)));
+                }
+                case Instruction.lhu: {
+                    const data = this.readData(addr);
+                    return halfwordToUnsigned(data >>> (8 * (3 - addr % 4)));
+                }
+                case Instruction.sb: {
+                    const offset = (addr % 4) * 8;
+                    const mask = 0xFF << offset;
+                    const currentData = this.readData(addr) & ~mask;
+                    const storeData = (this._maStoreData << offset) & mask;
+                    storeData(addr, storeData |currentData);
                     return 0;
-                case Instruction.sh:
-                    this.writeData(this._maAddr, 2, this._maStoreData);
+                }
+                case Instruction.sh: {
+                    const offset = (addr % 4) * 8;
+                    const mask = 0xFFFF << offset;
+                    const currentData = this.readData(addr) & ~mask;
+                    const storeData = (this._maStoreData << offset) & mask;
+                    storeData(addr, storeData |currentData);
                     return 0;
-                case Instruction.sw:
-                    this.writeData(this._maAddr, 4, this._maStoreData);
+                }
+                case Instruction.sw: {
+                    storeData(addr, data)
                     return 0;
+                }
                 default:
                     return 0;
             }
         }
     }
 
+    /**
+     * Checks if the branch is taken
+     * @returns branch taken
+     */
     getBranchTaken() {
         if (this._exInst == null) {
             return false;
@@ -398,6 +440,10 @@ export class Pipeline {
         }
     }
 
+    /**
+     * Computes the base address of the branch
+     * @returns branch base
+     */
     getBranchBase() {
         if (this._exInst == null) {
             return 0;
@@ -419,25 +465,29 @@ export class Pipeline {
         }
     }
 
-    getExData() {
+    /**
+     * Returns the operands for the execute stage
+     * @returns [DataA, DataB]
+     */
+    getExecuteOperands() {
         if (this._deInst == null) {
             return [0, 0];
         } else {
-            switch (this._deInst.constructor) {
-                case rv32i_r_instruction:
-                case rv32i_b_instruction:
+            switch (this._deInst.format) {
+                case Format.rv32i_r_format:
+                case Format.rv32i_b_format:
                     return [this._deDataA, this._deDataB];
-                case rv32i_s_instruction:
-                    return [this._deDataA, this._deImmed];
-                case rv32i_i_instruction:
+                case Format.rv32i_s_format:
+                    return [this._deDataA, this.deImmed];
+                case Format.rv32i_i_format:
                     if (this._deInst.inst == Instruction.jalr) {
                         return [this._dePC, 4];
                     } else {
-                        return [this._deDataA, this._deImmed];
+                        return [this._deDataA, this.deImmed];
                     }
-                case rv32i_j_instruction:
+                case Format.rv32i_j_format:
                     return [this._dePC, 4];
-                case rv32i_u_instruction:
+                case Format.rv32i_u_format:
                     if (this._deInst.inst == Instruction.auipc) {
                         return [this._dePC, this._deDataB];
                     } else {
@@ -450,154 +500,265 @@ export class Pipeline {
     }
 
     //Instruction fetch getters
+    /**
+     * Fetch PC
+     */
     get ifPC() {
         return this._ifPC;
     }
 
+    /**
+     * Fetch instruction
+     */
     get ifInst() {
         return this._ifInst;
     }
 
     //Instruction decode getters
+    /**
+     * Decode instruction
+     */
     get deInst() {
         return this._deInst;
     }
 
+    /**
+     * Decode data A
+     */
     get deDataA() {
         return this._deDataA;
     }
 
+    /**
+     * Decode data b
+     */
     get deDataB() {
         return this._deDataB;
     }
 
+    /**
+     * Decode RS1
+     */
     get deRS1() {
         return this._deInst?.rs1 ?? 0;
     }
 
+    /**
+     * Decode RS2
+     */
     get deRS2() {
         return this._deInst?.rs2 ?? 0;
     }
 
+    /**
+     * Decode, value from the RS1 register
+     */
     get deRegDataA() {
         return this._deRegDataA;
     }
 
+    /**
+     * Decode, value from the RS2 register
+     */
     get deRegDataB() {
         return this._deRegDataB;
     }
 
+    /**
+     * Decode immediate
+     */
     get deImmed() {
-        return this._deImmed;
+        return this._deInst?.immed ?? 0;
     }
 
+    /**
+     * Decode PC
+     */
     get dePC() {
         return this._dePC;
     }
 
+    /**
+     * Decode data a bypass selector
+     */
     get deDataABypassSel() {
         return this._deDataABypassSel;
     }
 
+    /**
+     * Decode data b bypass selector
+     */
     get deDataBBypassSel() {
         return this._deDataBBypassSel;
     }
 
     //Execute getters
+    /**
+     * Execute instruction
+     */
     get exInst() {
         return this._exInst;
     }
 
+    /**
+     * Execute data a
+     */
     get exDataA() {
         return this._exDataA;
     }
 
+    /**
+     * Execute data b
+     */
     get exDataB() {
         return this._exDataB;
     }
 
+    /**
+     * Execute ALU result
+     */
     get exAluData() {
         return this._exAluData;
     }
 
+    /**
+     * Execute store data
+     */
     get exStoreData() {
         return this._exStoreData;
     }
 
+    /**
+     * Execute branch address
+     */
     get exBranchAddr() {
         return this._exBranchAddr;
     }
 
+    /**
+     * Execute branch base address
+     */
     get exBranchBase() {
         return this._exBranchBase;
     }
 
+    /**
+     * Execute immediate
+     */
     get exImmed() {
-        return this._exImmed;
+        return this._exInst?.immed ?? 0;
     }
 
+    /**
+     * Execute branch taken
+     */
     get exBranchTaken() {
         return this._exBranchTaken;
     }
 
+    /**
+     * Execute PC
+     */
     get exPC() {
         return this._exPC;
     }
 
     //Memory access getters
+    /**
+     * Memory access instruction
+     */
     get maInst() {
         return this._maInst;
     }
 
+    /**
+     * Memory access store data
+     */
     get maStoreData() {
         return this._maStoreData;
     }
 
+    /**
+     * Memory access load data
+     */
     get maLoadData() {
         return this._maLoadData;
     }
 
+    /**
+     * Memory access address
+     */
     get maAddr() {
         return this._maAddr;
     }
 
+    /**
+     * Memory access ALU data
+     */
     get maAluData() {
         return this._maAluData;
     }
 
+    /**
+     * Memory access load/ALU selector
+     */
     get maLoadOp() {
         return this._maLoadOp;
     }
 
+    /**
+     * Memory access write back data
+     */
     get maWriteBackData() {
         return this._maWriteBackData;
     }
 
+    /**
+     * Memory access PC
+     */
     get maPC() {
         return this._maPC;
     }
 
     //Write back getters
+    /**
+     * Write back instruction
+     */
     get wbInst() {
         return this._wbInst;
     }
 
+    /**
+     * Write back RD
+     */
     get wbRD() {
         return this._wbInst?.rd ?? 0;
     }
 
+    /**
+     * Write back store data
+     */
     get wbStoreData() {
         return this._wbStoreData;
     }
 
+    /**
+     * Write back PC
+     */
     get wbPC() {
         return this._wbPC;
     }
 
+    /**
+     * Branch
+     */
     get branch() {
         return this._exBranchTaken;
     }
 
+    /**
+     * Data hazard
+     */
     get dataHazard() {
         return this._dataHazard;
     }

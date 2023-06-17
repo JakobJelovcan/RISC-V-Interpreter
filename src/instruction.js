@@ -1,4 +1,4 @@
-import {Registers} from "./registers.js"
+import {Register} from "./registers.js"
 /**
  * Decodes instructions
  * 
@@ -15,29 +15,38 @@ export function decodeInstructions(instructions) {
 
 /**
  * Decodes an instruction
- * @param {String} instruction 
+ * @param {String} code 
  * @returns instruction
  */
-export function decodeInstruction(instruction) {
-    if(typeof(instruction) != "string") {
+export function decodeInstruction(code) {
+    if(typeof(code) != "string") {
         throw new TypeError("Instruction has to be of type string");
     }
-    const { groups: { head, tail }} = /(?<head>[a-z]+) (?<tail>.*)/.exec(instruction)
+
+    const { groups: { head, tail }} = /(?<head>[a-z]+) (?<tail>.*)/.exec(code)
     const inst = Instruction[head]
+
     switch(inst) {
         case Instruction.lui:
-        case Instruction.auipc:
-            return new rv32i_u_instruction(instruction, inst, tail);
+        case Instruction.auipc: {
+            const { groups: { rd, immed }} = /(?<rd>[a-z][a-z0-9]+), (?<immed>-?[0-9]+)/.exec(tail);
+            return new rv32i_instruction(code, Format.rv32i_u_format, inst, Register[rd], Register.zero, Register.zero, Number(immed));
+        }
 
-        case Instruction.jal:
-            return new rv32i_j_instruction(instruction, inst, tail);
+        case Instruction.jal: {
+            const { groups: { rd, immed }} = /(?<rd>[a-z][a-z0-9]+), (?<immed>-?[0-9]+)/.exec(tail);
+            return new rv32i_instruction(code, Format.rv32i_j_format, inst, Register[rd], Register.zero, Register.zero, Number(immed));
+        }
 
         case Instruction.lb:
         case Instruction.lh:
         case Instruction.lw:
         case Instruction.lbu:
-        case Instruction.lhu:
-            return new rv32i_l_instruction(instruction, inst, tail);
+        case Instruction.lhu: {
+            const { groups: { rd, rs1, immed }} = /(?<rd>[a-z][a-z0-9]+), (?<immed>-?[0-9]+)\((?<rs1>[a-z][a-z0-9]+)\)/.exec(tail);
+            return new rv32i_instruction(code, Format.rv32i_i_format, inst, Register[rd], Register[rs1], Register.zero, Number(immed));
+        }
+
         case Instruction.jalr:
         case Instruction.addi:
         case Instruction.slti:
@@ -47,21 +56,27 @@ export function decodeInstruction(instruction) {
         case Instruction.andi:
         case Instruction.slli:
         case Instruction.srli:
-        case Instruction.srai:
-            return new rv32i_i_instruction(instruction, inst, tail);
+        case Instruction.srai: {
+            const { groups: { rd, rs1, immed }} = /(?<rd>[a-z][a-z0-9]+), (?<rs1>[a-z][a-z0-9]+), (?<immed>-?[0-9]+)/.exec(tail);
+            return new rv32i_instruction(code, Format.rv32i_i_format, inst, Register[rd], Register[rs1], Register.zero, Number(immed));
+        }
 
         case Instruction.beq:
         case Instruction.bne:
         case Instruction.blt:
         case Instruction.bge:
         case Instruction.bltu:
-        case Instruction.bgeu:
-            return new rv32i_b_instruction(instruction, inst, tail);
+        case Instruction.bgeu: {
+            const { groups: { rs1, rs2, immed }} = /(?<rs1>[a-z][a-z0-9]+), (?<rs2>[a-z][a-z0-9]+), (?<immed>-?[0-9]+)/.exec(tail);
+            return new rv32i_instruction(code, Format.rv32i_b_format, inst, Register.zero, Register[rs1], Register[rs2], Number(immed));
+        }
 
         case Instruction.sb:
         case Instruction.sh:
-        case Instruction.sw:
-            return new rv32i_s_instruction(instruction, inst, tail);
+        case Instruction.sw: {
+            const { groups: { rs1, rs2, immed }} = /(?<rs2>[a-z][a-z0-9]+), (?<immed>-?[0-9]+)\((?<rs1>[a-z][a-z0-9]+)\)/.exec(tail);
+            return new rv32i_instruction(code, Format.rv32i_s_format, inst, Register.zero, Register[rs1], Register[rs2], Number(immed));
+        }
 
         case Instruction.add:
         case Instruction.sub:
@@ -72,8 +87,12 @@ export function decodeInstruction(instruction) {
         case Instruction.slt:
         case Instruction.sltu:
         case Instruction.srl:
-        case Instruction.sra:
-            return new rv32i_r_instruction(instruction, inst, tail);
+        case Instruction.sra: {
+            const { groups: { rd, rs1, rs2 }} = /(?<rd>[a-z][a-z0-9]+), (?<rs1>[a-z][a-z0-9]+), (?<rs2>[a-z][a-z0-9]+)/.exec(tail);
+            return new rv32i_instruction(code, Format.rv32i_r_format, inst, Register[rd], Register[rs1], Register[rs2], 0);
+        }
+        default:
+            return null;
     }
 }
 
@@ -81,8 +100,19 @@ export function decodeInstruction(instruction) {
  * Base class for RV32I instructions
  */
 export class rv32i_instruction {
-    constructor(code, inst, rd, rs1, rs2, immed) {
+    /**
+     * 
+     * @param {String} code 
+     * @param {Format} format 
+     * @param {Instruction} inst 
+     * @param {Registers} rd 
+     * @param {Registers} rs1 
+     * @param {Registers} rs2 
+     * @param {Number} immed 
+     */
+    constructor(code, format, inst, rd, rs1, rs2, immed) {
         this._code = code;
+        this._format = format;
         this._inst = inst;
         this._rd = rd;
         this._rs1 = rs1;
@@ -95,6 +125,13 @@ export class rv32i_instruction {
      */
     get code() {
         return this._code;
+    }
+
+    /**
+     * Instruction format
+     */
+    get format() {
+        return this._format;
     }
 
     /**
@@ -133,110 +170,14 @@ export class rv32i_instruction {
     }
 }
 
-/**
- * Class representing an R format RV32I instruction
- */
-export class rv32i_r_instruction extends rv32i_instruction {
-    /**
-     * 
-     * @param {Instruction} inst 
-     * @param {String} tail 
-     */
-    constructor(code, inst, tail) {
-        const { groups: { rd, rs1, rs2 }} = /(?<rd>[a-z][a-z0-9]+), (?<rs1>[a-z][a-z0-9]+), (?<rs2>[a-z][a-z0-9]+)/.exec(tail);
-        super(code, inst, Registers[rd], Registers[rs1], Registers[rs2], 0);
-    }
-}
-
-/**
- * Class representing an I format RV32I instruction
- */
-export class rv32i_i_instruction extends rv32i_instruction {
-    /**
-     * 
-     * @param {Instruction} inst 
-     * @param {String} tail 
-     */
-    constructor(code, inst, tail) {
-        const { groups: { rd, rs1, immed }} = /(?<rd>[a-z][a-z0-9]+), (?<rs1>[a-z][a-z0-9]+), (?<immed>-?[0-9]+)/.exec(tail);
-        super(code, inst, Registers[rd], Registers[rs1], Registers.zero, Number(immed));
-    }
-}
-
-/**
- * Class representing an I format RV32I instruction
- */
-export class rv32i_l_instruction extends rv32i_instruction {
-    /**
-     * 
-     * @param {Instruction} inst 
-     * @param {String} tail 
-     */
-    constructor(code, inst, tail) {
-        const { groups: { rd, rs1, immed }} = /(?<rd>[a-z][a-z0-9]+), (?<immed>-?[0-9]+)\((?<rs1>[a-z][a-z0-9]+)\)/.exec(tail);
-        super(code, inst, Registers[rd], Registers[rs1], Registers.zero, Number(immed));
-    }
-}
-
-/**
- * Class representing an B format RV32I instruction
- */
-export class rv32i_b_instruction extends rv32i_instruction {
-    /**
-     * 
-     * @param {Instruction} inst 
-     * @param {String} tail 
-     */
-    constructor(code, inst, tail) {
-        const { groups: { rs1, rs2, immed }} = /(?<rs1>[a-z][a-z0-9]+), (?<rs2>[a-z][a-z0-9]+), (?<immed>-?[0-9]+)/.exec(tail);
-        super(code, inst, Registers.zero, Registers[rs1], Registers[rs2], Number(immed));
-    }
-}
-
-/**
- * Class representing an J format RV32I instruction
- */
-export class rv32i_j_instruction extends rv32i_instruction {
-    /**
-     * 
-     * @param {Instruction} inst 
-     * @param {String} tail 
-     */
-    constructor(code, inst, tail) {
-        const { groups: { rd, immed }} = /(?<rd>[a-z][a-z0-9]+), (?<immed>-?[0-9]+)/.exec(tail);
-        super(code, inst, Registers[rd], Registers.zero, Registers.zero, Number(immed));
-    }
-}
-
-/**
- * Class representing an U format RV32I instruction
- */
-export class rv32i_u_instruction extends rv32i_instruction {
-    /**
-     * 
-     * @param {Instruction} inst
-     * @param {String} tail 
-     */
-    constructor(code, inst, tail) {
-        const { groups: { rd, immed }} = /(?<rd>[a-z][a-z0-9]+), (?<immed>-?[0-9]+)/.exec(tail);
-        super(code, inst, Registers[rd], Registers.zero, Registers.zero, Number(immed));
-    }
-}
-
-/**
- * Class representing an S format RV32I instruction
- */
-export class rv32i_s_instruction extends rv32i_instruction {
-    /**
-     * 
-     * @param {Instruction} inst 
-     * @param {String} tail 
-     */
-    constructor(code, inst, tail) {
-        const { groups: { rs1, rs2, immed }} = /(?<rs2>[a-z][a-z0-9]+), (?<immed>-?[0-9]+)\((?<rs1>[a-z][a-z0-9]+)\)/.exec(tail);
-        super(code, inst, Registers.zero, Registers[rs1], Registers[rs2], Number(immed));
-    }
-}
+export const Format = Object.freeze({
+    "rv32i_i_format" : 0,
+    "rv32i_r_format" : 1,
+    "rv32i_b_format" : 2,
+    "rv32i_j_format" : 3,
+    "rv32i_u_format" : 4,
+    "rv32i_s_format" : 5,
+});
 
 export const Instruction = Object.freeze({
     "lui"   : 0,
@@ -276,4 +217,4 @@ export const Instruction = Object.freeze({
     "slli"  : 34,
     "srli"  : 35,
     "srai"  : 36,
-})
+});
