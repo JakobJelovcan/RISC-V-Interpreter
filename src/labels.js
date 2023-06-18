@@ -1,155 +1,42 @@
-import { Pipeline } from "./pipeline.js";
-
-export const LabelPositions = Object.freeze({
-    "ifPC":
-        [
-            [0.092, 0.39, 8],
-            [0.207, 0.39, 8],
-        ],
-    "ifInst":
-        [
-            [0.208, 0.67, 20],
-        ],
-    "deInst":
-        [
-            [0.327, 0.67, 20],
-        ],
-    "deDataA":
-        [
-            [0.435, 0.457, 6],
-        ],
-    "deDataB":
-        [
-            [0.435, 0.597, 6],
-        ],
-    "deRS1":
-        [
-            [0.284, 0.46, 2],
-        ],
-    "deRS2":
-        [
-            [0.284, 0.6, 2],
-        ],
-    // "deRegDataA":
-    //     [
-    //         [0.416, 0.44, 8],
-    //     ],
-    // "deRegDataB":
-    //     [
-    //         [0.416, 0.577, 8],
-    //     ],
-    // "deImmed":
-    //     [
-    //         [0, 0, 8],
-    //     ],
-    "dePC":
-        [
-            [0.347, 0.39, 8],
-        ],
-    "deDataABypassSel":
-        [
-            [0.4125, 0.495, 8],
-        ],
-    "deDataBBypassSel":
-        [
-            [0.4125, 0.635, 8],
-        ],
-    "exInst":
-        [
-            [0.567, 0.67, 20],
-        ],
-    "exDataA":
-        [
-            [0.51, 0.482, 8],
-        ],
-    "exDataB":
-        [
-            [0.51, 0.574, 8],
-        ],
-    "exAluData":
-        [
-            [0.59, 0.53, 8],
-        ],
-    "exStoreData":
-        [
-            [0.567, 0.61, 8],
-        ],
-    "exBranchAddr":
-        [
-            [0.349, 0.110, 8],
-            [0.51, 0.447, 8]
-        ],
-    // "exBranchBase":
-    //     [
-    //         [0, 0, 8],
-    //     ],
-    // "exImmed":
-    //     [
-    //         [0, 0, 8],
-    //     ],
-    "exBranchTaken":
-        [
-            [0.35, 0.065, 8],
-        ],
-    "exPC":
-        [
-            [0.567, 0.39, 8],
-        ],
-    "maInst":
-        [
-            [0.777, 0.67, 20],
-        ],
-    "maStoreData":
-        [
-            [0.712, 0.61, 8],
-        ],
-    "maLoadData":
-        [
-            [0.83, 0.46, 8],
-        ],
-    // "maAddr":
-    //     [
-    //         [0, 0, 8],
-    //     ],
-    "maAluData":
-        [
-            [0.712, 0.53, 8],
-        ],
-    "maLoadOp":
-        [
-            [0.8172, 0.564, 8],
-        ],
-    "maWriteBackData":
-        [
-            [0.847, 0.509, 8],
-        ],
-    "maPC":
-        [
-            [0.712, 0.39, 8],
-            [0.842, 0.39, 8],
-        ],
-    // "wbInst":
-    //     [
-    //         [0, 0, 8],
-    //     ],
-    "wbRD":
-        [
-            [0.568, 0.715, 2],
-        ],
-    "wbStoreData":
-        [
-            [0.568, 0.761, 8],
-        ],
-    // "wbPC":
-    //     [
-    //         [0, 0, 8],
-    //     ],
-    // "branch":
-    //     [
-    //         [0, 0, 8],
-    //     ],
-    // "dataHazard":
-    //     [
-    //         [0, 0, 8],
-    //     ],
-});
+/**
+ * A list of names "labels" for pipeline "signals"
+ */
+export const Labels = Object.freeze([
+    "ifPC",
+    "ifInst",
+    "deInst",
+    "deDataA",
+    "deDataB",
+    "deRS1",
+    "deRS2",
+    // "deRegDataA",
+    // "deRegDataB",
+    "deImmed",
+    "dePC",
+    "deBypassA",
+    "deBypassB",
+    "exInst",
+    "exDataA",
+    "exDataB",
+    "exAluData",
+    "exStoreData",
+    "exBranchAddr",
+    // "exBranchBase",
+    // "exImmed",
+    "exBranchTaken",
+    "exPC",
+    "maInst",
+    "maStoreData",
+    "maLoadData",
+    // "maAddr",
+    "maAluData",
+    "maLoadOp",
+    "maWriteBackData",
+    "maPC",
+    "wbInst",
+    "wbRD",
+    "wbStoreData",
+    // "wbPC",
+    // "branch",
+    // "dataHazard",
+]);

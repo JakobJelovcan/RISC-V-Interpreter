@@ -1,5 +1,5 @@
 import { Pipeline } from './pipeline.js';
-import { LabelPositions } from './labels.js'
+import { Labels } from './labels.js'
 import { signedToHex } from './util.js';
 import { preprocess } from './preprocessor.js'
 import { decodeInstructions } from './instruction.js';
@@ -9,14 +9,15 @@ class Simulator {
      * Constructs a simulator object
      * @param {Canvas} canvas 
      */
-    constructor(canvas) {
+    constructor(labels, registers, canvas) {
+        this._registers = registers;
         this._canvas = canvas;
         this._context = canvas.getContext('2d');
+        this._labels = labels;
         this._pipelineUtilization = [];
         this._pipeline = new Pipeline([]);
-        this._width = this._canvas.getBoundingClientRect().width;
-        this._height = this._canvas.getBoundingClientRect().height;
         this.update = this.update.bind(this);
+        this.updateLabels();
         requestAnimationFrame(this.update);
     }
 
@@ -24,13 +25,10 @@ class Simulator {
      * Updates the display
      */
     update() {
-        this._height = this._canvas.getBoundingClientRect().height;
-        this._width = this._canvas.getBoundingClientRect().width;
-        this._canvas.width = this._width;
-        this._canvas.height = this._height;
-        this._context.clearRect(0, 0, this._width, this._height);
+        const height = this._canvas.getBoundingClientRect().height;
+        const width = this._canvas.getBoundingClientRect().width;
+        this._context.clearRect(0, 0, width, height);
         this.drawUtilization();
-        this.drawContent();
         requestAnimationFrame(this.update);
     }
 
@@ -38,16 +36,10 @@ class Simulator {
      * Draws the pipeline utilization graph
      */
     drawUtilization() {
-        const rectSize = 0.04 * this._height;
+        const rectSize = 20;
         const padding = 4;
-        const offsetX = (rectSize + padding);
-        const offsetY = this._height - (rectSize + padding) * 5;
-        const fontSize = 0.04 * this._height;
-
-        //Draw the title for the pipeline utilization graph
-        this._context.fillStyle = 'black';
-        this._context.font = `${Math.round(fontSize)}px calibri`;
-        this._context.fillText("Pipeline", offsetX, offsetY - (0.02 * this._height));
+        const offsetX = 10;
+        const offsetY = 10;
 
         for(let i = 0; i < this._pipelineUtilization.length; ++i) {
             for(let j = 0; j < 5; ++j) {
@@ -57,6 +49,10 @@ class Simulator {
         }
     }
 
+    /**
+     * Gets an array containing instructions currently in the pipeline
+     * @returns utilization
+     */
     getUtilization() {
         const utilization = new Array(5);
         utilization[0] = this._pipeline.ifInst;
@@ -68,44 +64,47 @@ class Simulator {
     }
 
     /**
-     * Draws the values on to the schematic
+     * Updates labels with the current values from the pipeline
      */
-    drawContent() {
-        const fontSize = 0.02 * this._height;
-        this._context.fillStyle = 'green';
-        this._context.font = `${Math.round(fontSize)}px calibri`;
-
-        for(const [key, coordinates] of Object.entries(LabelPositions)) {
+    updateLabels() {
+        for(const [key, elements] of this._labels.entries()) {
             const value = this._pipeline[key];
-            let text = null;
-            if(typeof(value) == 'boolean') {
-                text = (value) ? '1' : '0';
-            } else if(typeof(value) == 'number') {
-                text = signedToHex(value);
-            } else if(value != null) {
-                text = value.code;
-            } else {
-                text = 'nop';
-            }
-            coordinates.forEach(c => {
-                const [x, y, l] = c;
-                this.drawTextCentered(text, l, x * this._width, y * this._height);
-            });
+            let text = this.getLabelText(value);
+            elements.forEach(e => e.innerHTML = text);
         }
     }
 
     /**
-     * Draws the text onto the screen
      * 
-     * @param {String} text 
-     * @param {Number} l number of characters from the back to be displayed
-     * @param {Number} x horizontal position of the center of the text
-     * @param {Number} y 
      */
-    drawTextCentered(text, l, x, y) {
-        text = text.substring(Math.max(0, text.length - l));
-        const width = this._context.measureText(text).width;
-        this._context.fillText(text, x - width / 2, y);
+    updateRegisters() {
+        let content = '';
+        const registers = this._pipeline.registers;
+        for(let i = 0; i < 32; ++i) {
+            if(i < 10) {
+                content += `x0${i}: ${registers[i]}\n`;
+            } else {
+                content += `x${i}: ${registers[i]}\n`;
+            }
+        }
+        this._registers.innerHTML = content;
+    }
+
+    /**
+     * Returns a string representing the value
+     * @param {Object} value 
+     * @returns 
+     */
+    getLabelText(value) {
+        if(typeof(value) == 'boolean') {
+            return (value) ? '1' : '0';
+        } else if(typeof(value) == 'number') {
+            return signedToHex(value);
+        } else if(value != null) {
+            return value.code;
+        } else {
+            return 'nop';
+        }
     }
 
     /**
@@ -124,6 +123,8 @@ class Simulator {
      */
     step() {
         this._pipeline.execute();
+        this.updateLabels();
+        this.updateRegisters();
         const utilization = this.getUtilization();
         this._pipelineUtilization.push(utilization);
         if(this._pipelineUtilization.length > 5) {
@@ -132,11 +133,34 @@ class Simulator {
     }
 }
 
-const canvas = document.querySelector('canvas');
-const sim = new Simulator(canvas);
+const canvas = document.querySelector('#canvas');
+const registers = document.querySelector('#registers');
+const labels = getLabels();
+const sim = new Simulator(labels, registers, canvas);
 document.querySelector('#loadButton').addEventListener('click', loadClick);
 document.querySelector('#editorButton').addEventListener('click', editorClick);
 document.querySelector('#stepButton').addEventListener('click', stepClick);
+document.querySelector('#registersButton').addEventListener('click', registersClick);
+document.querySelector('#pointerCapture').addEventListener('click', pointerCaptureClick);
+
+/**
+ * Loads the html elements for displaying pipeline values into a dictionary
+ * @returns Labels
+ */
+function getLabels() {
+    const dict = new Map();
+    Labels.forEach(label => {
+        const xpath = `//font[text()='${label}']`;
+        const result = document.evaluate(xpath, document, null, XPathResult.ANY_TYPE, null);
+        let elements = [];
+        let element = null;
+        while((element = result.iterateNext())) {
+            elements.push(element);
+        }
+        dict.set(label, elements);
+    });
+    return dict;
+}
 
 /**
  * Event handler for loadButton click
@@ -160,6 +184,26 @@ function stepClick() {
 function editorClick() {
     const editor = document.querySelector('#editor');
     editor.classList.toggle('open');
-    const navBar = document.querySelector('#navBar');
-    navBar.classList.toggle('shadow');
+    const registers = document.querySelector('#registers');
+    registers.classList.remove('open');
+}
+
+/**
+ * Event handler for registersButton click
+ */
+function registersClick() {
+    const registers = document.querySelector('#registers');
+    registers.classList.toggle('open');
+    const editor = document.querySelector('#editor');
+    editor.classList.remove('open');
+}
+
+/**
+ * Event handler for pointerCapture click
+ */
+function pointerCaptureClick() {
+    const editor = document.querySelector('#editor');
+    editor.classList.remove('open');
+    const registers = document.querySelector('#registers');
+    registers.classList.remove('open');
 }

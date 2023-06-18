@@ -29,13 +29,23 @@ export function decodeInstruction(code) {
     switch(inst) {
         case Instruction.lui:
         case Instruction.auipc: {
-            const { groups: { rd, immed }} = /(?<rd>[a-z][a-z0-9]+), (?<immed>-?[0-9]+)/.exec(tail);
-            return new rv32i_instruction(code, Format.rv32i_u_format, inst, Register[rd], Register.zero, Register.zero, Number(immed));
+            try {
+                const { groups: { rd, immed }} = /(?<rd>[a-z][a-z0-9]+), (?<immed>-?[0-9]+)/.exec(tail);
+                return new rv32i_instruction(code, Format.rv32i_u_format, inst, Register[rd], Register.zero, Register.zero, Number(immed));
+            } catch {
+                window.alert(`Invalid instruction "${code}"`);
+            }
+            return null;
         }
 
         case Instruction.jal: {
-            const { groups: { rd, immed }} = /(?<rd>[a-z][a-z0-9]+), (?<immed>-?[0-9]+)/.exec(tail);
-            return new rv32i_instruction(code, Format.rv32i_j_format, inst, Register[rd], Register.zero, Register.zero, Number(immed));
+            try {
+                const { groups: { rd, immed }} = /(?:(?<rd>[a-z][a-z0-9]+), )?(?<immed>-?[0-9]+)/.exec(tail);
+                return new rv32i_instruction(code, Format.rv32i_j_format, inst, ((rd == undefined) ? Register.ra : Register[rd]), Register.zero, Register.zero, Number(immed));
+            } catch {
+                window.alert(`Invalid instruction "${code}"`);
+            }
+            return null;
         }
 
         case Instruction.lb:
@@ -43,11 +53,24 @@ export function decodeInstruction(code) {
         case Instruction.lw:
         case Instruction.lbu:
         case Instruction.lhu: {
-            const { groups: { rd, rs1, immed }} = /(?<rd>[a-z][a-z0-9]+), (?<immed>-?[0-9]+)\((?<rs1>[a-z][a-z0-9]+)\)/.exec(tail);
-            return new rv32i_instruction(code, Format.rv32i_i_format, inst, Register[rd], Register[rs1], Register.zero, Number(immed));
+            try {
+                const { groups: { rd, rs1, immed }} = /(?<rd>[a-z][a-z0-9]+), (?<immed>-?[0-9]+)\((?<rs1>[a-z][a-z0-9]+)\)/.exec(tail);
+                return new rv32i_instruction(code, Format.rv32i_i_format, inst, Register[rd], Register[rs1], Register.zero, Number(immed));
+            } catch {
+                window.alert(`Invalid instruction "${code}"`);
+            }
+            return null;
         }
 
-        case Instruction.jalr:
+        case Instruction.jalr: {
+            try {
+                const { groups: { rd, rs1, immed }} = /(?:(?<rd>[a-z][a-z0-9]+),)? (?<rs1>[a-z][a-z0-9]+), (?<immed>-?[0-9]+)/.exec(tail);
+                return new rv32i_instruction(code, Format.rv32i_i_format, inst, ((rd == undefined) ? Register.ra : Register[rd]), Register[rs1], Register.zero, Number(immed));
+            } catch {
+                window.alert(`Invalid instruction "${code}"`);
+            }
+            return null;
+        }
         case Instruction.addi:
         case Instruction.slti:
         case Instruction.sltiu:
@@ -57,8 +80,13 @@ export function decodeInstruction(code) {
         case Instruction.slli:
         case Instruction.srli:
         case Instruction.srai: {
-            const { groups: { rd, rs1, immed }} = /(?<rd>[a-z][a-z0-9]+), (?<rs1>[a-z][a-z0-9]+), (?<immed>-?[0-9]+)/.exec(tail);
-            return new rv32i_instruction(code, Format.rv32i_i_format, inst, Register[rd], Register[rs1], Register.zero, Number(immed));
+            try {
+                const { groups: { rd, rs1, immed }} = /(?<rd>[a-z][a-z0-9]+), (?<rs1>[a-z][a-z0-9]+), (?<immed>-?[0-9]+)/.exec(tail);
+                return new rv32i_instruction(code, Format.rv32i_i_format, inst, Register[rd], Register[rs1], Register.zero, Number(immed));
+            } catch {
+                window.alert(`Invalid instruction "${code}"`);
+            }
+            return null;
         }
 
         case Instruction.beq:
@@ -67,15 +95,25 @@ export function decodeInstruction(code) {
         case Instruction.bge:
         case Instruction.bltu:
         case Instruction.bgeu: {
-            const { groups: { rs1, rs2, immed }} = /(?<rs1>[a-z][a-z0-9]+), (?<rs2>[a-z][a-z0-9]+), (?<immed>-?[0-9]+)/.exec(tail);
-            return new rv32i_instruction(code, Format.rv32i_b_format, inst, Register.zero, Register[rs1], Register[rs2], Number(immed));
+            try {
+                const { groups: { rs1, rs2, immed }} = /(?<rs1>[a-z][a-z0-9]+), (?<rs2>[a-z][a-z0-9]+), (?<immed>-?[0-9]+)/.exec(tail);
+                return new rv32i_instruction(code, Format.rv32i_b_format, inst, Register.zero, Register[rs1], Register[rs2], Number(immed));
+            } catch {
+                window.alert(`Invalid instruction "${code}"`);
+            }
+            return null;
         }
 
         case Instruction.sb:
         case Instruction.sh:
         case Instruction.sw: {
-            const { groups: { rs1, rs2, immed }} = /(?<rs2>[a-z][a-z0-9]+), (?<immed>-?[0-9]+)\((?<rs1>[a-z][a-z0-9]+)\)/.exec(tail);
-            return new rv32i_instruction(code, Format.rv32i_s_format, inst, Register.zero, Register[rs1], Register[rs2], Number(immed));
+            try {
+                const { groups: { rs1, rs2, immed }} = /(?<rs2>[a-z][a-z0-9]+), (?<immed>-?[0-9]+)\((?<rs1>[a-z][a-z0-9]+)\)/.exec(tail);
+                return new rv32i_instruction(code, Format.rv32i_s_format, inst, Register.zero, Register[rs1], Register[rs2], Number(immed));
+            } catch {
+                window.alert(`Invalid instruction "${code}"`);
+            }
+            return null;
         }
 
         case Instruction.add:
@@ -88,10 +126,16 @@ export function decodeInstruction(code) {
         case Instruction.sltu:
         case Instruction.srl:
         case Instruction.sra: {
-            const { groups: { rd, rs1, rs2 }} = /(?<rd>[a-z][a-z0-9]+), (?<rs1>[a-z][a-z0-9]+), (?<rs2>[a-z][a-z0-9]+)/.exec(tail);
-            return new rv32i_instruction(code, Format.rv32i_r_format, inst, Register[rd], Register[rs1], Register[rs2], 0);
+            try {
+                const { groups: { rd, rs1, rs2 }} = /(?<rd>[a-z][a-z0-9]+), (?<rs1>[a-z][a-z0-9]+), (?<rs2>[a-z][a-z0-9]+)/.exec(tail);
+                return new rv32i_instruction(code, Format.rv32i_r_format, inst, Register[rd], Register[rs1], Register[rs2], 0);
+            } catch {
+                window.alert(`Invalid instruction "${code}"`);
+            }
+            return null;
         }
         default:
+            window.alert(`Invalid instruction "${head}"`)
             return null;
     }
 }

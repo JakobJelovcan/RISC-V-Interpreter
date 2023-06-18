@@ -19,8 +19,8 @@ export class Pipeline {
         this._deRegDataA = 0;
         this._deRegDataB = 0;
         this._dePC = 0;
-        this._deDataABypassSel = false;
-        this._deDataBBypassSel = false;
+        this._deBypassA = false;
+        this._deBypassB = false;
         //Execute
         this._exInst = null;
         this._exDataA = 0;
@@ -114,21 +114,22 @@ export class Pipeline {
         this.writeBackStage();
         this.memoryAccessStage();
         if (this._dataHazard) {
-            //If there is a data hazard flush the execute stage
+            //If there is a data hazard flush the execute stage and refresh decode stage
             this._dataHazard = false;
             this.flushExecute();
+            this.refreshDecodeStage();
         } else {
             this.executeStage();
-        }
-        if (this._exBranchTaken) {
-            //If there is a branch flush the instruction fetch and decode stages
-            this.flushFetchAndDecode();
-        } else {
-            this.decodeStage();
-            this.instructionFetchStage();
+            if (this._exBranchTaken) {
+                //If there is a branch flush the instruction fetch and decode stages
+                this.flushFetchAndDecode();
+            } else {
+                this.decodeStage();
+                this.instructionFetchStage();
+            }
         }
         //Store the data from the write back stage in to the register unit
-        this.writeRegister(this._wbInst?.rd ?? 0, this._wbStoreData);
+        this.writeRegister(this.wbRD, this._wbStoreData);
 
         if (!this._dataHazard) {
             //If there isn't a data hazard update the PC
@@ -159,8 +160,8 @@ export class Pipeline {
         this._deInst = null;
         this._dePC = 0;
         this._dataHazard = 0;
-        this._deDataABypassSel = false;
-        this._deDataBBypassSel = false;
+        this._deBypassA = false;
+        this._deBypassB = false;
         this._deRegDataA = 0;
         this._deRegDataB = 0;
         this._deDataA = 0;
@@ -187,13 +188,30 @@ export class Pipeline {
 
         this._dataHazard = !rs1Valid || !rs2Valid;
 
-        this._deDataABypassSel = rs1Use;
-        this._deDataBBypassSel = rs2Use;
+        this._deBypassA = rs1Use;
+        this._deBypassB = rs2Use;
 
         this._deRegDataA = this.readRegister(this.deRS1);
         this._deRegDataB = this.readRegister(this.deRS2);
-        this._deDataA = (this._deDataABypassSel) ? rs1Data : this._deRegDataA;
-        this._deDataB = (this._deDataBBypassSel) ? rs2Data : this._deRegDataB;
+        this._deDataA = (this._deBypassA) ? rs1Data : this._deRegDataA;
+        this._deDataB = (this._deBypassB) ? rs2Data : this._deRegDataB;
+    }
+
+    /**
+     * Refreshes DataA and DataB
+     */
+    refreshDecodeStage() {
+        const [[rs1Valid, rs1Use, rs1Data], [rs2Valid, rs2Use, rs2Data]] = this.bypassUnit();
+
+        this._dataHazard = !rs1Valid || !rs2Valid;
+
+        this._deBypassA = rs1Use;
+        this._deBypassB = rs2Use;
+
+        this._deRegDataA = this.readRegister(this.deRS1);
+        this._deRegDataB = this.readRegister(this.deRS2);
+        this._deDataA = (this._deBypassA) ? rs1Data : this._deRegDataA;
+        this._deDataB = (this._deBypassB) ? rs2Data : this._deRegDataB;
     }
 
     /**
@@ -394,7 +412,7 @@ export class Pipeline {
                     const mask = 0xFF << offset;
                     const currentData = this.readData(addr) & ~mask;
                     const storeData = (this._maStoreData << offset) & mask;
-                    storeData(addr, storeData |currentData);
+                    this.writeData(addr, storeData | currentData);
                     return 0;
                 }
                 case Instruction.sh: {
@@ -402,11 +420,11 @@ export class Pipeline {
                     const mask = 0xFFFF << offset;
                     const currentData = this.readData(addr) & ~mask;
                     const storeData = (this._maStoreData << offset) & mask;
-                    storeData(addr, storeData |currentData);
+                    this.writeData(addr, storeData | currentData);
                     return 0;
                 }
                 case Instruction.sw: {
-                    storeData(addr, data)
+                    this.writeData(addr, this._maStoreData);
                     return 0;
                 }
                 default:
@@ -499,6 +517,10 @@ export class Pipeline {
         }
     }
 
+    get registers() {
+        return this._registers;
+    }
+
     //Instruction fetch getters
     /**
      * Fetch PC
@@ -581,15 +603,15 @@ export class Pipeline {
     /**
      * Decode data a bypass selector
      */
-    get deDataABypassSel() {
-        return this._deDataABypassSel;
+    get deBypassA() {
+        return this._deBypassA;
     }
 
     /**
      * Decode data b bypass selector
      */
-    get deDataBBypassSel() {
-        return this._deDataBBypassSel;
+    get deBypassB() {
+        return this._deBypassB;
     }
 
     //Execute getters

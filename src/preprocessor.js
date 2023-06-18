@@ -33,10 +33,10 @@ export function preprocess(code) {
     currentLine = 0
     instructions.forEach(instruction => {
         if (instruction.startsWith('j') || instruction.startsWith('b')) {
-            const { groups: { head, label } } = /(?<head>[j|b].*, )(?<label>.*)/.exec(instruction)
+            const { groups: { head, label } } = /(?<head>[j|b].*) (?<label>.*)/.exec(instruction)
             if (labels.has(label)) {
                 let offset = (labels.get(label) - currentLine) * 4;
-                processedInstructions.push(`${head}${offset}`);
+                processedInstructions.push(`${head} ${offset}`);
             } else {
                 processedInstructions.push(instruction);
             }
