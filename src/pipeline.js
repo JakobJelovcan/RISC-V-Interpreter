@@ -356,15 +356,15 @@ export class Pipeline {
                 case Instruction.blt:
                 case Instruction.slt:
                 case Instruction.slti:
-                    return (compareSigned(this._exDataA < this._exDataB) < 0) ? 1 : 0;
+                    return (compareSigned(this._exDataA, this._exDataB) < 0) ? 1 : 0;
                 case Instruction.bltu:
                 case Instruction.sltu:
                 case Instruction.sltui:
                     return (compareUnsigned(this._exDataA, this._exDataB) < 0) ? 1 : 0;
                 case Instruction.bge:
-                    return (compareSigned(this._exDataA >= this._exDataB) >= 0) ? 1 : 0;
+                    return (compareSigned(this._exDataA, this._exDataB) >= 0) ? 1 : 0;
                 case Instruction.bgeu:
-                    return (compareUnsigned(this._exDataA >= this._exDataB) >= 0) ? 1 : 0;
+                    return (compareUnsigned(this._exDataA, this._exDataB) >= 0) ? 1 : 0;
                 case Instruction.sll:
                 case Instruction.slli:
                     return this._exDataA << this._exDataB;
@@ -507,9 +507,9 @@ export class Pipeline {
                     return [this._dePC, 4];
                 case Format.rv32i_u_format:
                     if (this._deInst.inst == Instruction.auipc) {
-                        return [this._dePC, this._deDataB];
+                        return [this._dePC, this.deImmed];
                     } else {
-                        return [this._deDataA, this._deDataB];
+                        return [this._deDataA, this.deImmed];
                     }
                 default:
                     return [0, 0];

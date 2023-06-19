@@ -31,7 +31,7 @@ export function decodeInstruction(code) {
         case Instruction.auipc: {
             try {
                 const { groups: { rd, immed }} = /(?<rd>[a-z][a-z0-9]+), (?<immed>-?[0-9]+)/.exec(tail);
-                return new rv32i_instruction(code, Format.rv32i_u_format, inst, Register[rd], Register.zero, Register.zero, Number(immed));
+                return new rv32i_instruction(code, Format.rv32i_u_format, inst, Register[rd], Register.zero, Register.zero, Number(immed) << 12);
             } catch {
                 window.alert(`Invalid instruction "${code}"`);
             }
