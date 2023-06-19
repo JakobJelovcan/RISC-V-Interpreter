@@ -267,7 +267,7 @@ export class Pipeline {
                 case Instruction.lh:
                 case Instruction.lw:
                 case Instruction.lbu:
-                case Instruction.lbh:
+                case Instruction.lhu:
                     return true;
                 default:
                     return false;
@@ -390,22 +390,22 @@ export class Pipeline {
             switch (this._exInst.instruction) {
                 case Instruction.lb: {
                     const data = this.readData(addr);
-                    return byteToSigned(data >>> (8 * (3 - addr % 4)));
+                    return byteToSigned(data >>> (8 * (addr % 4)));
                 }
                 case Instruction.lh: {
                     const data = this.readData(addr);
-                    return halfwordToSigned(data >>> (8 * (3 - addr % 4)));
+                    return halfwordToSigned(data >>> (8 * (addr % 4)));
                 }
                 case Instruction.lw: {
                     return this.readData(addr);
                 }
                 case Instruction.lbu: {
                     const data = this.readData(addr);
-                    return byteToUnsigned(data >>> (8 * (3 - addr % 4)));
+                    return byteToUnsigned(data >>> (8 * (addr % 4)));
                 }
                 case Instruction.lhu: {
                     const data = this.readData(addr);
-                    return halfwordToUnsigned(data >>> (8 * (3 - addr % 4)));
+                    return halfwordToUnsigned(data >>> (8 * (addr % 4)));
                 }
                 case Instruction.sb: {
                     const offset = (addr % 4) * 8;

@@ -72,7 +72,7 @@ export function byteToUnsigned(b) {
  * @returns 
  */
 export function halfwordToSigned(h) {
-    h &= 0xFFFF;
+    h &= 0x0000FFFF;
     if((h & (1 << 15)) != 0) {
         h |= 0xFFFF0000;
     }
@@ -85,5 +85,5 @@ export function halfwordToSigned(h) {
  * @returns 
  */
 export function halfwordToUnsigned(h) {
-    return h & 0xFFFF;
+    return h & 0x0000FFFF;
 }
