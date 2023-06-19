@@ -1,6 +1,6 @@
 # RISC-V-Interpreter
 
-A simple RISC-V 32I pipeline simulator.
+A simple RISC-V 32I 5 stage pipeline simulator.
 
 ![Simulation example](./Demo.png)
 
@@ -22,6 +22,8 @@ Capabilities:
 - Displaying signal values within the pipeline
 - Displaying register values
 - Displaying pipeline utilization
+
+The simulator does not completely follow the RV32I specification (immediate sizes, ...) and is mainly intended to demonstrate the inner workings of the pipeline. 
 
 Usage:
 
