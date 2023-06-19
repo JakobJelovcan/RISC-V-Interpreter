@@ -64,7 +64,7 @@ export function decodeInstruction(code) {
 
         case Instruction.jalr: {
             try {
-                const { groups: { rd, rs1, immed }} = /(?:(?<rd>[a-z][a-z0-9]+),)? (?<rs1>[a-z][a-z0-9]+), (?<immed>-?[0-9]+)/.exec(tail);
+                const { groups: { rd, rs1, immed }} = /(?:(?<rd>[a-z][a-z0-9]+), )?(?<rs1>[a-z][a-z0-9]+), (?<immed>-?[0-9]+)/.exec(tail);
                 return new rv32i_instruction(code, Format.rv32i_i_format, inst, ((rd == undefined) ? Register.ra : Register[rd]), Register[rs1], Register.zero, Number(immed));
             } catch {
                 window.alert(`Invalid instruction "${code}"`);
