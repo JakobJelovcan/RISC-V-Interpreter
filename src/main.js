@@ -1,9 +1,10 @@
-import { Pipeline } from './pipeline.js';
+import { rv32i_pipeline } from './RV32I/pipeline.js';
+import { arm_pipeline } from './ARM32/pipeline.js'
 import { Labels } from './labels.js'
 import { signedToHex } from './util.js';
 import { preprocess } from './preprocessor.js'
-import { decodeInstructions } from './instruction.js';
-
+import { decodeInstructions as rv32i_decodeInstructions } from './RV32I/instruction.js';
+import { decodeInstructions as arm32_decodeInstructions } from './ARM32/instruction.js';
 class Simulator {
     /**
      * Constructs a simulator object
@@ -15,7 +16,7 @@ class Simulator {
         this._context = canvas.getContext('2d');
         this._labels = labels;
         this._pipelineUtilization = [];
-        this._pipeline = new Pipeline([]);
+        this._pipeline = new rv32i_pipeline([]);
         this.update = this.update.bind(this);
         this.updateLabels();
         requestAnimationFrame(this.update);
@@ -80,7 +81,7 @@ class Simulator {
     updateRegisters() {
         let content = '';
         const registers = this._pipeline.registers;
-        for(let i = 0; i < 32; ++i) {
+        for(let i = 0; i < this._pipeline.registers.length; ++i) {
             if(i < 10) {
                 content += `x0${i}: ${registers[i]}\n`;
             } else {
@@ -111,11 +112,21 @@ class Simulator {
      * Loads the code in to the simulator
      * @param {String} code 
      */
-    load(code) {
+    load(code, instructionSet) {
         this._pipelineUtilization = [];
         const preprocessedCode = preprocess(code);
-        const instructions = decodeInstructions(preprocessedCode);
-        this._pipeline = new Pipeline(instructions);
+        switch(instructionSet) {
+            case "rv32i": {
+                const instructions = rv32i_decodeInstructions(preprocessedCode);
+                this._pipeline = new rv32i_pipeline(instructions);
+                break;
+            }
+            case "arm32": {
+                const instructions = arm32_decodeInstructions(preprocessedCode);
+                this._pipeline = new arm_pipeline(instructions);
+                break;
+            }
+        }
     }
 
     /**
@@ -142,6 +153,7 @@ document.querySelector('#editorButton').addEventListener('click', editorClick);
 document.querySelector('#stepButton').addEventListener('click', stepClick);
 document.querySelector('#registersButton').addEventListener('click', registersClick);
 document.querySelector('#pointerCapture').addEventListener('click', pointerCaptureClick);
+document.querySelector('#instructionSet').addEventListener('change', instructionSetChanged);
 
 /**
  * Loads the html elements for displaying pipeline values into a dictionary
@@ -166,9 +178,9 @@ function getLabels() {
  * Event handler for loadButton click
  */
 function loadClick() {
+    const select = document.querySelector('#instructionSet');
     const editor = document.querySelector('#editor');
-    const code = editor.value;
-    sim.load(code);
+    sim.load(editor.value, select.value);
 }
 
 /**
@@ -206,4 +218,13 @@ function pointerCaptureClick() {
     editor.classList.remove('open');
     const registers = document.querySelector('#registers');
     registers.classList.remove('open');
+}
+
+/**
+ * Event handler for instructionSet onchanged
+ */
+function instructionSetChanged() {
+    const select = document.querySelector('#instructionSet');
+    const editor = document.querySelector('#editor');
+    sim.load(editor.value, select.value);
 }

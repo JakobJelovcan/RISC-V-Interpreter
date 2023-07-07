@@ -1,8 +1,8 @@
 import { Register } from "./registers.js"
 import { Format, Instruction } from "./instruction.js"
-import { byteToSigned, byteToUnsigned, compareSigned, compareUnsigned, halfwordToSigned, halfwordToUnsigned } from "./util.js";
+import { byteToSigned, byteToUnsigned, compareSigned, compareUnsigned, halfwordToSigned, halfwordToUnsigned } from "../util.js";
 
-export class Pipeline {
+export class rv32i_pipeline {
     /**
      * 
      * @param {Object} instructions 

@@ -24,7 +24,11 @@ export function decodeInstruction(code) {
     }
 
     const { groups: { head, tail }} = /(?<head>[a-z]+) (?<tail>.*)/.exec(code)
-    const inst = Instruction[head]
+    if(!(head in Instruction)) {
+        window.alert(`Invalid instruction ${code}`);
+        return null;
+    }
+    const inst = Instruction[head];
 
     switch(inst) {
         case Instruction.lui:

@@ -151,6 +151,12 @@
             width: 100%;
             height: 100%;
         }
+        #instructionSetContainer {
+            font-family: calibri;
+            position: absolute;
+            right: 0;
+            top: 0
+        }
     </style>
 </head>
 
@@ -210,6 +216,13 @@
             </div>
             <script type="text/javascript" src="https://viewer.diagrams.net/js/viewer-static.min.js"></script>
             <div id="pointerCapture">
+            </div>
+            <div id="instructionSetContainer">
+                Instruction set:
+                <select id="instructionSet" size="1">
+                    <option value="arm32">ARM</option>
+                    <option value="rv32i" selected="selected">RISC-V</option>
+                </select>
             </div>
             <canvas id="canvas" width="400" height="220"></canvas>
         </div>

@@ -1,51 +1,84 @@
+
 /**
- * The function preprocesses the code by removing all comments and replacing labels with offsets
+ * Preprocesses the code
  * 
- * @param {String} code 
- * @returns instructions
+ * The preprocessor removes the comments, newlines and replaces labels with offsets
+ * 
+ * @param {string} code 
+ * @returns preprocessed code
  */
 export function preprocess(code) {
-    if (typeof (code) != "string") {
-        throw new TypeError("Code has to be of type string");
-    }
+    let lines_of_code = code.split('\n');
 
-    let lines = code.split('\n');
-
+    //Seperate labels from instructions and remove the comments
+    let position = 0;
     let labels = new Map();
     let instructions = [];
-
-    //Seperate lables and instructions
-    let currentLine = 0;
-    lines.forEach(line => {
-        let instruction = line.trim();
-        if (instruction.length > 0) {
-            if (instruction.endsWith(':')) {
-                labels.set(instruction.substring(0, instruction.length - 1), currentLine);
-            } else if (!instruction.startsWith('#')) {
-                instructions.push(instruction);
-                ++currentLine;
+    for(let line of lines_of_code) {
+        line = line.trim();
+        if(!is_comment(line) && line.length > 0) {
+            if(is_label(line)) {
+                labels.set(extract_label(line), position);
+            } else {
+                instructions.push(remove_comments(line));
+                position++;
             }
         }
-    })
+    }
 
     //Replace labels in instructions with offsets
-    let processedInstructions = []
-    currentLine = 0
-    instructions.forEach(instruction => {
-        if (instruction.startsWith('j') || instruction.startsWith('b')) {
-            const { groups: { head, label } } = /(?<head>[j|b].*) (?<label>.*)/.exec(instruction)
-            if (labels.has(label)) {
-                let offset = (labels.get(label) - currentLine) * 4;
-                processedInstructions.push(`${head} ${offset}`);
-            } else {
-                processedInstructions.push(instruction);
-            }
+    position = 0
+    let processedInstructions = [];
+    for(let instruction of instructions) {
+        const { groups: { head, label } } = /(?<head>.*) (?:(?<label>\w[\w\d]*))?/.exec(instruction);
+        if (label != undefined && labels.has(label)) {
+            const offset = (labels.get(label) - position) * 4;
+            processedInstructions.push(`${head} ${offset}`);
         } else {
             processedInstructions.push(instruction);
         }
-        ++currentLine;
-
-    })
+        ++position;
+    }
 
     return processedInstructions;
+}
+
+/**
+ * Removes trailing comments from the instruction
+ * 
+ * @param {string} line_of_code 
+ * @returns 
+ */
+function remove_comments(line_of_code) {
+    const { groups: { instruction }} = /(?<instruction>.*)#?.*/.exec(line_of_code);
+    return instruction;
+}
+
+/**
+ * Checks if the line is a label
+ * 
+ * @param {string} line 
+ */
+function is_label(line) {
+    return /\w[\w\d]*:/.test(line);
+}
+
+/**
+ * Checks if the line is a comment
+ * 
+ * @param {string} line 
+ * @returns 
+ */
+function is_comment(line) {
+    return /#.*/.test(line);
+}
+
+/**
+ * Extracts the label from the line
+ * 
+ * @param {string} line 
+ */
+function extract_label(line) {
+    const { groups: { label } } = /(?<label>\w[\w\d]*):/.exec(line);
+    return label;
 }
