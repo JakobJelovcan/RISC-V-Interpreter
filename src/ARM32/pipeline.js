@@ -84,9 +84,7 @@ export class arm_pipeline {
      * @param {Number} data 
      */
     writeRegister(reg, data) {
-        if (reg != 0) {
-            this._registers[reg] = data;
-        }
+        this._registers[reg] = data;
     }
 
     /**
