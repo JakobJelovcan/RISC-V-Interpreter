@@ -25,8 +25,7 @@ export function decodeInstruction(code) {
 
     const { groups: { head, tail }} = /(?<head>[a-z]+) (?<tail>.*)/.exec(code)
     if(!(head in Instruction)) {
-        window.alert(`Invalid instruction ${code}`);
-        return null;
+        throw new Error(`Invalid instruction ${code}`);
     }
     const inst = Instruction[head];
 
@@ -37,21 +36,17 @@ export function decodeInstruction(code) {
                 const { groups: { rd, immed }} = /(?<rd>[a-z][a-z0-9]+), (?<immed>-?[0-9]+)/.exec(tail);
                 return new rv32i_instruction(code, Format.rv32i_u_format, inst, Register[rd], Register.zero, Register.zero, Number(immed) << 12);
             } catch {
-                window.alert(`Invalid instruction "${code}"`);
+                throw new Error(`Invalid operands in instruction ${code}`);
             }
-            return null;
         }
-
         case Instruction.jal: {
             try {
                 const { groups: { rd, immed }} = /(?:(?<rd>[a-z][a-z0-9]+), )?(?<immed>-?[0-9]+)/.exec(tail);
                 return new rv32i_instruction(code, Format.rv32i_j_format, inst, ((rd == undefined) ? Register.ra : Register[rd]), Register.zero, Register.zero, Number(immed));
             } catch {
-                window.alert(`Invalid instruction "${code}"`);
+                throw new Error(`Invalid operands in instruction ${code}`);
             }
-            return null;
         }
-
         case Instruction.lb:
         case Instruction.lh:
         case Instruction.lw:
@@ -61,19 +56,16 @@ export function decodeInstruction(code) {
                 const { groups: { rd, rs1, immed }} = /(?<rd>[a-z][a-z0-9]+), (?<immed>-?[0-9]+)\((?<rs1>[a-z][a-z0-9]+)\)/.exec(tail);
                 return new rv32i_instruction(code, Format.rv32i_i_format, inst, Register[rd], Register[rs1], Register.zero, Number(immed));
             } catch {
-                window.alert(`Invalid instruction "${code}"`);
+                throw new Error(`Invalid operands in instruction ${code}`);
             }
-            return null;
         }
-
         case Instruction.jalr: {
             try {
                 const { groups: { rd, rs1, immed }} = /(?:(?<rd>[a-z][a-z0-9]+), )?(?<rs1>[a-z][a-z0-9]+), (?<immed>-?[0-9]+)/.exec(tail);
                 return new rv32i_instruction(code, Format.rv32i_i_format, inst, ((rd == undefined) ? Register.ra : Register[rd]), Register[rs1], Register.zero, Number(immed));
             } catch {
-                window.alert(`Invalid instruction "${code}"`);
+                throw new Error(`Invalid operands in instruction ${code}`);
             }
-            return null;
         }
         case Instruction.addi:
         case Instruction.slti:
@@ -88,11 +80,9 @@ export function decodeInstruction(code) {
                 const { groups: { rd, rs1, immed }} = /(?<rd>[a-z][a-z0-9]+), (?<rs1>[a-z][a-z0-9]+), (?<immed>-?[0-9]+)/.exec(tail);
                 return new rv32i_instruction(code, Format.rv32i_i_format, inst, Register[rd], Register[rs1], Register.zero, Number(immed));
             } catch {
-                window.alert(`Invalid instruction "${code}"`);
+                throw new Error(`Invalid operands in instruction ${code}`);
             }
-            return null;
         }
-
         case Instruction.beq:
         case Instruction.bne:
         case Instruction.blt:
@@ -103,11 +93,9 @@ export function decodeInstruction(code) {
                 const { groups: { rs1, rs2, immed }} = /(?<rs1>[a-z][a-z0-9]+), (?<rs2>[a-z][a-z0-9]+), (?<immed>-?[0-9]+)/.exec(tail);
                 return new rv32i_instruction(code, Format.rv32i_b_format, inst, Register.zero, Register[rs1], Register[rs2], Number(immed));
             } catch {
-                window.alert(`Invalid instruction "${code}"`);
+                throw new Error(`Invalid operands in instruction ${code}`);
             }
-            return null;
         }
-
         case Instruction.sb:
         case Instruction.sh:
         case Instruction.sw: {
@@ -115,11 +103,9 @@ export function decodeInstruction(code) {
                 const { groups: { rs1, rs2, immed }} = /(?<rs2>[a-z][a-z0-9]+), (?<immed>-?[0-9]+)\((?<rs1>[a-z][a-z0-9]+)\)/.exec(tail);
                 return new rv32i_instruction(code, Format.rv32i_s_format, inst, Register.zero, Register[rs1], Register[rs2], Number(immed));
             } catch {
-                window.alert(`Invalid instruction "${code}"`);
+                throw new Error(`Invalid operands in instruction ${code}`);
             }
-            return null;
         }
-
         case Instruction.add:
         case Instruction.sub:
         case Instruction.xor:
@@ -134,13 +120,11 @@ export function decodeInstruction(code) {
                 const { groups: { rd, rs1, rs2 }} = /(?<rd>[a-z][a-z0-9]+), (?<rs1>[a-z][a-z0-9]+), (?<rs2>[a-z][a-z0-9]+)/.exec(tail);
                 return new rv32i_instruction(code, Format.rv32i_r_format, inst, Register[rd], Register[rs1], Register[rs2], 0);
             } catch {
-                window.alert(`Invalid instruction "${code}"`);
+                throw new Error(`Invalid operands in instruction ${code}`);
             }
-            return null;
         }
         default:
-            window.alert(`Invalid instruction "${head}"`)
-            return null;
+            throw new Error(`Invalid instruction ${code}`);
     }
 }
 

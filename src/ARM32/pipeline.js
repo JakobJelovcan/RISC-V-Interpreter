@@ -1,5 +1,5 @@
 import { Register } from "./registers.js"
-import { Instruction } from "./instruction.js"
+import { Condition, Instruction, Modifier } from "./instruction.js"
 import { byteToSigned, byteToUnsigned, halfwordToSigned, halfwordToUnsigned } from "../util.js";
 
 export class arm_pipeline {
@@ -24,6 +24,7 @@ export class arm_pipeline {
         this._deBypassB = false;
         //Execute
         this._exInst = null;
+        this._exValid = false;
         this._exDataA = 0;
         this._exDataB = 0;
         this._exAluData = 0;
@@ -34,6 +35,7 @@ export class arm_pipeline {
         this._exPC = 0;
         //Memory access
         this._maInst = null;
+        this._maValid = false;
         this._maStoreData = 0;
         this._maLoadData = 0;
         this._maAddr = 0;
@@ -43,6 +45,7 @@ export class arm_pipeline {
         this._maPC = 0;
         //Write back
         this._wbInst = null;
+        this._wbValid = false;
         this._wbStoreData = 0;
         this._wbPC = 0;
 
@@ -130,7 +133,7 @@ export class arm_pipeline {
             }
         }
         //Store the data from the write back stage in to the register unit
-        if(this.is_write_back_instruction()) {
+        if(this.isWriteBackInstruction() && this._wbValid) {
             this.writeRegister(this.wbRD, this._wbStoreData);
         }
 
@@ -145,6 +148,7 @@ export class arm_pipeline {
      */
     flushExecute() {
         this._exInst = null;
+        this._exValid = false;
         this._dataHazard = false;
         this._exAluData = 0;
         this._exBranchAddr = 0;
@@ -225,9 +229,10 @@ export class arm_pipeline {
         this._exPC = this._dePC;
         [this._exDataA, this._exDataB] = this.getExecuteOperands();
         this._exStoreData = this._deDataB;
+        this._exValid = (this._exInst != null) ? this.getConditional(this._exInst.condition) : false;
         this._exAluData = this.executeAluOperation();
         this._exBranchBase = this.getBranchBase();
-        this._exBranchTaken = this.getBranchTaken();
+        this._exBranchTaken = this.getBranchTaken() && this._exValid;
         this._exBranchAddr = this._exBranchBase + this.exImmed;
     }
 
@@ -236,12 +241,13 @@ export class arm_pipeline {
      */
     memoryAccessStage() {
         this._maInst = this._exInst;
+        this._maValid = this._exValid;
         this._maPC = this._exPC;
         this._maAluData = this._exAluData;
         this._maAddr = this._exAluData;
         this._maStoreData = this._exStoreData;
         this._maLoadOp = this.isLoadInstruction(this._maInst);
-        this._maLoadData = this.executeMemoryOperation();
+        this._maLoadData = (this._maValid) ? this.executeMemoryOperation() : 0;
         this._maWriteBackData = (this._maLoadOp) ? this._maLoadData : this._maAluData;
     }
 
@@ -250,6 +256,7 @@ export class arm_pipeline {
      */
     writeBackStage() {
         this._wbInst = this._maInst;
+        this._wbValid = this._maValid;
         this._wbPC = this._maPC;
         this._wbRegD = this._wbInst?.rd ?? 0;
         this._wbStoreData = this._maWriteBackData;
@@ -328,84 +335,138 @@ export class arm_pipeline {
             switch (this._exInst.instruction) {
                 case Instruction.add:
                 case Instruction.ldr:
-                case Instruction.ldrb:
-                case Instruction.ldrsb:
-                case Instruction.ldrh:
-                case Instruction.ldrsh:
                 case Instruction.str:
-                case Instruction.strb:
-                case Instruction.strh:
                 case Instruction.b:
-                case Instruction.beq:
-                case Instruction.bne:
-                case Instruction.blo:
-                case Instruction.bhi:
-                case Instruction.bls:
-                case Instruction.bhs:
-                case Instruction.blt:
-                case Instruction.bgt:
-                case Instruction.bge:
-                case Instruction.ble:
                 case Instruction.bl:
-                case Instruction.bx:
-                case Instruction.bleq:
-                case Instruction.blne:
-                case Instruction.bllo:
-                case Instruction.blhi:
-                case Instruction.blls:
-                case Instruction.blhs:
-                case Instruction.bllt:
-                case Instruction.blgt:
-                case Instruction.blge:
-                case Instruction.blle:
-                    return this._exDataA + this._exDataB;
-                case Instruction.sub:
-                    return this._exDataA - this._exDataB;
-                case Instruction.mul:
-                    return this._exDataA * this._exDataB;
-                case Instruction.and:
-                    return this._exDataA & this._exDataB;
-                case Instruction.orr:
-                    return this._exDataA | this._exDataB;
-                case Instruction.eor:
-                    return this._exDataA ^ this._exDataB;
-                case Instruction.bic:
-                    return this._exDataA & (~this._exDataB);
-                case Instruction.mov:
-                    return this._exDataB;
+                case Instruction.bx: {
+                    const res = this._exDataA + this._exDataB;
+                    if(this._exInst.modifier == Modifier.s) {
+                        this.setFlags(this._exDataA, this._exDataB, res, true);
+                    }
+                    return res;
+                }
+                case Instruction.adc: {
+                    const res = this._exDataA + this._exDataB + (this._cpsr.c) ? 1 : 0;
+                    if(this._exInst.modifier == Modifier.s) {
+                        this.setFlags(this._exDataA, this._exDataB, res, true);
+                    }
+                    return res;
+                }
+                case Instruction.sub: {
+                    const res = this._exDataA - this._exDataB;
+                    if(this._exInst.modifier == Modifier.s) {
+                        this.setFlags(this._exDataA, this._exDataB, res, true);
+                    }
+                    return res;
+                }
+                case Instruction.rsb: {
+                    const res = this._exDataB - this._exDataA;
+                    if(this._exInst.modifier == Modifier.s) {
+                        this.setFlags(this._exDataA, this._exDataB, res, true);
+                    }
+                    return res;
+                }
+                case Instruction.mul: {
+                    const res = this._exDataA * this._exDataB;
+                    if(this._exInst.modifier == Modifier.s) {
+                        this.setFlags(this._exDataA, this._exDataB, res, true);
+                    }
+                    return res;
+                }
+                case Instruction.lsl: {
+                    const res = this._exDataA << this._exDataB;
+                    if(this._exInst.modifier == Modifier.s) {
+                        this.setFlags(this._exDataA, this._exDataB, res, false);
+                    }
+                    return res;
+                }
+                case Instruction.lsr: {
+                    const res = this._exDataA >>> this._exDataB;
+                    if(this._exInst.modifier == Modifier.s) {
+                        this.setFlags(this._exDataA, this._exDataB, res, false);
+                    }
+                    return res;
+                }
+                case Instruction.asr: {
+                    const res = this._exDataA >> this._exDataB;
+                    if(this._exInst.modifier == Modifier.s) {
+                        this.setFlags(this._exDataA, this._exDataB, res, false);
+                    }
+                    return res;
+                }
+                case Instruction.and: {
+                    const res = this._exDataA & this._exDataB;
+                    if(this._exInst.modifier == Modifier.s) {
+                        this.setFlags(this._exDataA, this._exDataB, res, false);
+                    }
+                    return res;
+                }
+                case Instruction.orr: {
+                    const res = this._exDataA | this._exDataB;
+                    if(this._exInst.modifier == Modifier.s) {
+                        this.setFlags(this._exDataA, this._exDataB, res, false);
+                    }
+                    return res;
+                }
+                case Instruction.eor: {
+                    const res = this._exDataA ^ this._exDataB;
+                    if(this._exInst.modifier == Modifier.s) {
+                        this.setFlags(this._exDataA, this._exDataB, res, false);
+                    }
+                    return res;
+                }
+                case Instruction.bic: {
+                    const res = this._exDataA & (~this._exDataB);
+                    if(this._exInst.modifier == Modifier.s) {
+                        this.setFlags(this._exDataA, (~this._exDataB), res, false);
+                    }
+                    return res;
+                }
+                case Instruction.mov: {
+                    const res = this._exDataB;
+                    if(this._exInst.modifier == Modifier.s) {
+                        this.setFlags(0, this._exDataB, res, false);
+                    }
+                    return res;
+                }
                 case Instruction.cmp: {
                     const res = this._exDataA - this._exDataB;
-                    this._cpsr.z = this.is_zero(res);
-                    this._cpsr.n = this.is_negative(res);
-                    this._cpsr.c = this.is_carry(res);
-                    this._cpsr.v = this.is_overflow(this._exDataA, this._exDataB, res);
+                    this.setFlags(this._exDataA, this._exDataB, res, true);
                     return 0;
                 }
                 case Instruction.cmn: {
                     const res = this._exDataA + this._exDataB;
-                    this._cpsr.z = this.is_zero(res);
-                    this._cpsr.n = this.is_negative(res);
-                    this._cpsr.c = this.is_carry(res);
-                    this._cpsr.v = this.is_overflow(this._exDataA, this._exDataB, res);
+                    this.setFlags(this._exDataA, this._exDataB, res, true);
                     return 0;
                 }
                 case Instruction.tst: {
                     const res = this._exDataA & this._exDataB;
-                    this._cpsr.z = this.is_zero(res);
-                    this._cpsr.n = this.is_negative(res);
-                    this._cpsr.c = false;
-                    this._cpsr.v = false;
+                    this.setFlags(this._exDataA, this._exDataB, res, false);
                     return 0;
                 }
                 case Instruction.teq: {
                     const res = this._exDataA ^ this._exDataB;
-                    this._cpsr.z = this.is_zero(res);
-                    this._cpsr.n = this.is_negative(res);
-                    this._cpsr.c = false;
-                    this._cpsr.v = false;
+                    this.setFlags(this._exDataA, this._exDataB, res, false);
                     return 0;
                 }
             }
+        }
+    }
+
+    /**
+     * Sets the flags
+     * 
+     * @param {Number} a 
+     * @param {Number} b 
+     * @param {Number} r 
+     * @param {Boolean} set_v 
+     */
+    setFlags(a, b, r, set_v) {
+        this._cpsr.z = this.isZero(r);
+        this._cpsr.n = this.isNegative(r);
+        this._cpsr.c = this.isCarry(r);
+        if(set_v) {
+            this._cpsr.v = this.isOverflow(a, b, r);
         }
     }
 
@@ -415,7 +476,7 @@ export class arm_pipeline {
      * @param {Number} r 
      * @returns 
      */
-    is_zero(r) {
+    isZero(r) {
         return (r & 0xFFFFFFFF) == 0;
     }
 
@@ -425,7 +486,7 @@ export class arm_pipeline {
      * @param {Number} r 
      * @returns 
      */
-    is_negative(r) {
+    isNegative(r) {
         return (r & 0x80000000) != 0;
     }
 
@@ -435,7 +496,7 @@ export class arm_pipeline {
      * @param {Number} r 
      * @returns 
      */
-    is_carry(r) {
+    isCarry(r) {
         const i = BigInt(r);
         return (i & BigInt(0x80000000)) != BigInt(0);
     }
@@ -448,7 +509,7 @@ export class arm_pipeline {
      * @param {Number} r 
      * @returns 
      */
-    is_overflow(a, b, r) {
+    isOverflow(a, b, r) {
         const a31 = (a & 0x80000000) >>> 31;
         const b31 = (b & 0x80000000) >>> 31;
         const r31 = (r & 0x80000000) >>> 31;
@@ -460,7 +521,7 @@ export class arm_pipeline {
      * Checks if the instruction in the write back stage stores it's result into the register unit
      * @returns 
      */
-    is_write_back_instruction() {
+    isWriteBackInstruction() {
         if(this._wbInst == null) {
             return false;
         } else {
@@ -526,48 +587,101 @@ export class arm_pipeline {
         } else {
             const addr = this._maAddr;
             switch (this._exInst.instruction) {
-                case Instruction.ldrsb: {
-                    const data = this.readData(addr);
-                    return byteToSigned(data >>> (8 * (addr % 4)));
-                }
-                case Instruction.ldrsh: {
-                    const data = this.readData(addr);
-                    return halfwordToSigned(data >>> (8 * (addr % 4)));
-                }
                 case Instruction.ldr: {
-                    return this.readData(addr);
-                }
-                case Instruction.ldrb: {
-                    const data = this.readData(addr);
-                    return byteToUnsigned(data >>> (8 * (addr % 4)));
-                }
-                case Instruction.ldrh: {
-                    const data = this.readData(addr);
-                    return halfwordToUnsigned(data >>> (8 * (addr % 4)));
-                }
-                case Instruction.strb: {
-                    const offset = (addr % 4) * 8;
-                    const mask = 0xFF << offset;
-                    const currentData = this.readData(addr) & ~mask;
-                    const storeData = (this._maStoreData << offset) & mask;
-                    this.writeData(addr, storeData | currentData);
-                    return 0;
-                }
-                case Instruction.strh: {
-                    const offset = (addr % 4) * 8;
-                    const mask = 0xFFFF << offset;
-                    const currentData = this.readData(addr) & ~mask;
-                    const storeData = (this._maStoreData << offset) & mask;
-                    this.writeData(addr, storeData | currentData);
-                    return 0;
+                    switch(this._exInst.modifier) {
+                        case Modifier.b: {
+                            const data = this.readData(addr);
+                            return byteToUnsigned(data >>> (8 * (addr % 4)));
+                        }
+                        case Modifier.sb: {
+                            const data = this.readData(addr);
+                            return byteToSigned(data >>> (8 * (addr % 4)));
+                        }
+                        case Modifier.h: {
+                            const data = this.readData(addr);
+                            return halfwordToUnsigned(data >>> (8 * (addr % 4)));
+                        }
+                        case Modifier.sh: {
+                            const data = this.readData(addr);
+                            return halfwordToSigned(data >>> (8 * (addr % 4)));
+                        }
+                        default: {
+                            return this.readData(addr);
+                        }
+                    }
                 }
                 case Instruction.str: {
-                    this.writeData(addr, this._maStoreData);
+                    switch(this._exInst.modifier) {
+                        case Modifier.b: {
+                            const offset = (addr % 4) * 8;
+                            const mask = 0xFF << offset;
+                            const currentData = this.readData(addr) & ~mask;
+                            const storeData = (this._maStoreData << offset) & mask;
+                            this.writeData(addr, storeData | currentData);
+                            return 0;
+                        }
+                        case Modifier.h: {
+                            const offset = (addr % 4) * 8;
+                            const mask = 0xFFFF << offset;
+                            const currentData = this.readData(addr) & ~mask;
+                            const storeData = (this._maStoreData << offset) & mask;
+                            this.writeData(addr, storeData | currentData);
+                            return 0;
+                        }
+                        default: {
+                            this.writeData(addr, this._maStoreData);
+                            return 0;
+                        }
+                    }
+                }
+                default: {
                     return 0;
                 }
-                default:
-                    return 0;
             }
+        }
+    }
+
+    /**
+     * Checks it the execution condition is fulfilled
+     * @param {Condition} cond 
+     * @returns 
+     */
+    getConditional(cond) {
+        switch (cond) {
+            case Condition.eq:
+                return (this._cpsr.z == true);
+            case Condition.ne:
+                return (this._cpsr.z == false);
+            case Condition.cs:
+            case Condition.hs:
+                return (this._cpsr.c == true);
+            case Condition.cc:
+            case Condition.lo:
+                return (this._cpsr.c == false);
+            case Condition.mi:
+                return (this._cpsr.n == true);
+            case Condition.pl:
+                return (this._cpsr.n == false);
+            case Condition.vc:
+                return (this._cpsr.v == false);
+            case Condition.vs:
+                return (this._cpsr.v == true);
+            case Condition.hi:
+                return (this._cpsr.c == true) && (this._cpsr.z == false);
+            case Condition.ls:
+                return (this._cpsr.c == false) || (this._cpsr.z == true);
+            case Condition.ge:
+                return (this._cpsr.n == this._cpsr.v);
+            case Condition.lt:
+                return (this._cpsr.n != this._cpsr.v);
+            case Condition.gt:
+                return (this._cpsr.z == false) && (this._cpsr.n == this._cpsr.v);
+            case Condition.le:
+                return (this._cpsr.z == true) && (this._cpsr.n != this._cpsr.v);
+            case Condition.al:
+                return true;
+            default:
+                return false;
         }
     }
 
@@ -579,41 +693,11 @@ export class arm_pipeline {
         if (this._exInst == null) {
             return false;
         } else {
-            switch (this._exInst.instruction) {
-                case Instruction.beq:
-                case Instruction.bleq:
-                    return (this._cpsr.z == true);
-                case Instruction.bne:
-                case Instruction.blne:
-                    return (this._cpsr.z == false);
-                case Instruction.bhs:
-                case Instruction.blhs:
-                    return (this._cpsr.c == true);
-                case Instruction.blo:
-                case Instruction.bllo:
-                    return (this._cpsr.c == false);
-                case Instruction.bhi:
-                case Instruction.blhi:
-                    return (this._cpsr.c == true) && (this._cpsr.z == false);
-                case Instruction.bls:
-                case Instruction.blls:
-                    return (this._cpsr.c == false) || (this._cpsr.z == true);
-                case Instruction.bge:
-                case Instruction.blge:
-                    return (this._cpsr.n == this._cpsr.v);
-                case Instruction.blt:
-                case Instruction.bllt:
-                    return (this._cpsr.n != this._cpsr.v);
-                case Instruction.bgt:
-                case Instruction.blgt:
-                    return (this._cpsr.z == false) && (this._cpsr.n == this._cpsr.v);
-                case Instruction.ble:
-                case Instruction.blle:
-                    return (this._cpsr.z == true) && (this._cpsr.n != this._cpsr.v);
+            switch(this._exInst.instruction) {
                 case Instruction.b:
                 case Instruction.bl:
                 case Instruction.bx:
-                    return true;
+                    return this.getConditional(this._exInst.condition);
                 default:
                     return false;
             }

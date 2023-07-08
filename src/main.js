@@ -117,13 +117,21 @@ class Simulator {
         const preprocessedCode = preprocess(code);
         switch(instructionSet) {
             case "rv32i": {
-                const instructions = rv32i_decodeInstructions(preprocessedCode);
-                this._pipeline = new rv32i_pipeline(instructions);
+                try {
+                    const instructions = rv32i_decodeInstructions(preprocessedCode);
+                    this._pipeline = new rv32i_pipeline(instructions);
+                } catch (e) {
+                    window.alert(e.message);
+                }
                 break;
             }
             case "arm32": {
-                const instructions = arm32_decodeInstructions(preprocessedCode);
-                this._pipeline = new arm_pipeline(instructions);
+                try {
+                    const instructions = arm32_decodeInstructions(preprocessedCode);
+                    this._pipeline = new arm_pipeline(instructions);
+                } catch (e) {
+                    window.alert(e.message);
+                }
                 break;
             }
         }
