@@ -14,10 +14,10 @@ export function preprocess(code) {
     let position = 0;
     let labels = new Map();
     let instructions = [];
-    for(let line of lines_of_code) {
+    for (let line of lines_of_code) {
         line = line.trim();
-        if(!is_comment(line) && line.length > 0) {
-            if(is_label(line)) {
+        if (!is_comment(line) && line.length > 0) {
+            if (is_label(line)) {
                 labels.set(extract_label(line), position);
             } else {
                 instructions.push(remove_comments(line));
@@ -29,7 +29,7 @@ export function preprocess(code) {
     //Replace labels in instructions with offsets
     position = 0
     let processedInstructions = [];
-    for(let instruction of instructions) {
+    for (let instruction of instructions) {
         const { groups: { head, label } } = /(?<head>.*) (?:(?<label>\w[\w\d]*))?/.exec(instruction);
         if (label != undefined && labels.has(label)) {
             const offset = (labels.get(label) - position) * 4;
@@ -50,7 +50,7 @@ export function preprocess(code) {
  * @returns 
  */
 function remove_comments(line_of_code) {
-    const { groups: { instruction }} = /(?<instruction>.*)#?.*/.exec(line_of_code);
+    const { groups: { instruction } } = /(?<instruction>.*)#?.*/.exec(line_of_code);
     return instruction;
 }
 

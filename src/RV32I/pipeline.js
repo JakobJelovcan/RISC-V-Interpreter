@@ -382,7 +382,7 @@ export class rv32i_pipeline {
      * Executes the memory operation and returns the result
      * @returns Mem result
      */
-    executeMemoryOperation() {  
+    executeMemoryOperation() {
         if (this._exInst == null) {
             return 0;
         } else {

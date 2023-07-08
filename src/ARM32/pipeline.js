@@ -2,6 +2,11 @@ import { Register } from "./registers.js"
 import { Condition, Instruction, Modifier } from "./instruction.js"
 import { byteToSigned, byteToUnsigned, halfwordToSigned, halfwordToUnsigned } from "../util.js";
 
+/**
+ * ARM pipeline
+ * 
+ * This class is used for simulating an ARM 32b 5 stage pipeline
+ */
 export class arm_pipeline {
     /**
      * 
@@ -133,7 +138,7 @@ export class arm_pipeline {
             }
         }
         //Store the data from the write back stage in to the register unit
-        if(this.isWriteBackInstruction() && this._wbValid) {
+        if (this.isWriteBackInstruction() && this._wbValid) {
             this.writeRegister(this.wbRD, this._wbStoreData);
         }
 
@@ -340,91 +345,91 @@ export class arm_pipeline {
                 case Instruction.bl:
                 case Instruction.bx: {
                     const res = this._exDataA + this._exDataB;
-                    if(this._exInst.modifier == Modifier.s) {
+                    if (this._exInst.modifier == Modifier.s) {
                         this.setFlags(this._exDataA, this._exDataB, res, true);
                     }
                     return res;
                 }
                 case Instruction.adc: {
                     const res = this._exDataA + this._exDataB + (this._cpsr.c) ? 1 : 0;
-                    if(this._exInst.modifier == Modifier.s) {
+                    if (this._exInst.modifier == Modifier.s) {
                         this.setFlags(this._exDataA, this._exDataB, res, true);
                     }
                     return res;
                 }
                 case Instruction.sub: {
                     const res = this._exDataA - this._exDataB;
-                    if(this._exInst.modifier == Modifier.s) {
+                    if (this._exInst.modifier == Modifier.s) {
                         this.setFlags(this._exDataA, this._exDataB, res, true);
                     }
                     return res;
                 }
                 case Instruction.rsb: {
                     const res = this._exDataB - this._exDataA;
-                    if(this._exInst.modifier == Modifier.s) {
+                    if (this._exInst.modifier == Modifier.s) {
                         this.setFlags(this._exDataA, this._exDataB, res, true);
                     }
                     return res;
                 }
                 case Instruction.mul: {
                     const res = this._exDataA * this._exDataB;
-                    if(this._exInst.modifier == Modifier.s) {
+                    if (this._exInst.modifier == Modifier.s) {
                         this.setFlags(this._exDataA, this._exDataB, res, true);
                     }
                     return res;
                 }
                 case Instruction.lsl: {
                     const res = this._exDataA << this._exDataB;
-                    if(this._exInst.modifier == Modifier.s) {
+                    if (this._exInst.modifier == Modifier.s) {
                         this.setFlags(this._exDataA, this._exDataB, res, false);
                     }
                     return res;
                 }
                 case Instruction.lsr: {
                     const res = this._exDataA >>> this._exDataB;
-                    if(this._exInst.modifier == Modifier.s) {
+                    if (this._exInst.modifier == Modifier.s) {
                         this.setFlags(this._exDataA, this._exDataB, res, false);
                     }
                     return res;
                 }
                 case Instruction.asr: {
                     const res = this._exDataA >> this._exDataB;
-                    if(this._exInst.modifier == Modifier.s) {
+                    if (this._exInst.modifier == Modifier.s) {
                         this.setFlags(this._exDataA, this._exDataB, res, false);
                     }
                     return res;
                 }
                 case Instruction.and: {
                     const res = this._exDataA & this._exDataB;
-                    if(this._exInst.modifier == Modifier.s) {
+                    if (this._exInst.modifier == Modifier.s) {
                         this.setFlags(this._exDataA, this._exDataB, res, false);
                     }
                     return res;
                 }
                 case Instruction.orr: {
                     const res = this._exDataA | this._exDataB;
-                    if(this._exInst.modifier == Modifier.s) {
+                    if (this._exInst.modifier == Modifier.s) {
                         this.setFlags(this._exDataA, this._exDataB, res, false);
                     }
                     return res;
                 }
                 case Instruction.eor: {
                     const res = this._exDataA ^ this._exDataB;
-                    if(this._exInst.modifier == Modifier.s) {
+                    if (this._exInst.modifier == Modifier.s) {
                         this.setFlags(this._exDataA, this._exDataB, res, false);
                     }
                     return res;
                 }
                 case Instruction.bic: {
                     const res = this._exDataA & (~this._exDataB);
-                    if(this._exInst.modifier == Modifier.s) {
+                    if (this._exInst.modifier == Modifier.s) {
                         this.setFlags(this._exDataA, (~this._exDataB), res, false);
                     }
                     return res;
                 }
                 case Instruction.mov: {
                     const res = this._exDataB;
-                    if(this._exInst.modifier == Modifier.s) {
+                    if (this._exInst.modifier == Modifier.s) {
                         this.setFlags(0, this._exDataB, res, false);
                     }
                     return res;
@@ -465,7 +470,7 @@ export class arm_pipeline {
         this._cpsr.z = this.isZero(r);
         this._cpsr.n = this.isNegative(r);
         this._cpsr.c = this.isCarry(r);
-        if(set_v) {
+        if (set_v) {
             this._cpsr.v = this.isOverflow(a, b, r);
         }
     }
@@ -522,10 +527,10 @@ export class arm_pipeline {
      * @returns 
      */
     isWriteBackInstruction() {
-        if(this._wbInst == null) {
+        if (this._wbInst == null) {
             return false;
         } else {
-            switch(this._wbInst.instruction) {
+            switch (this._wbInst.instruction) {
                 case Instruction.add:
                 case Instruction.ldr:
                 case Instruction.ldrb:
@@ -581,14 +586,14 @@ export class arm_pipeline {
      * Executes the memory operation and returns the result
      * @returns Mem result
      */
-    executeMemoryOperation() {  
+    executeMemoryOperation() {
         if (this._exInst == null) {
             return 0;
         } else {
             const addr = this._maAddr;
             switch (this._exInst.instruction) {
                 case Instruction.ldr: {
-                    switch(this._exInst.modifier) {
+                    switch (this._exInst.modifier) {
                         case Modifier.b: {
                             const data = this.readData(addr);
                             return byteToUnsigned(data >>> (8 * (addr % 4)));
@@ -611,7 +616,7 @@ export class arm_pipeline {
                     }
                 }
                 case Instruction.str: {
-                    switch(this._exInst.modifier) {
+                    switch (this._exInst.modifier) {
                         case Modifier.b: {
                             const offset = (addr % 4) * 8;
                             const mask = 0xFF << offset;
@@ -693,7 +698,7 @@ export class arm_pipeline {
         if (this._exInst == null) {
             return false;
         } else {
-            switch(this._exInst.instruction) {
+            switch (this._exInst.instruction) {
                 case Instruction.b:
                 case Instruction.bl:
                 case Instruction.bx:

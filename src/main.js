@@ -42,8 +42,8 @@ class Simulator {
         const offsetX = 10;
         const offsetY = 10;
 
-        for(let i = 0; i < this._pipelineUtilization.length; ++i) {
-            for(let j = 0; j < 5; ++j) {
+        for (let i = 0; i < this._pipelineUtilization.length; ++i) {
+            for (let j = 0; j < 5; ++j) {
                 this._context.fillStyle = (this._pipelineUtilization[i][j] == null) ? 'red' : 'green';
                 this._context.fillRect(offsetX + (rectSize + padding) * (i + j), offsetY + (rectSize + padding) * i, rectSize, rectSize);
             }
@@ -51,7 +51,7 @@ class Simulator {
     }
 
     /**
-     * Gets an array containing instructions currently in the pipeline
+     * Gets an array containing instructions currently in the pipeline.
      * @returns utilization
      */
     getUtilization() {
@@ -68,7 +68,7 @@ class Simulator {
      * Updates labels with the current values from the pipeline
      */
     updateLabels() {
-        for(const [key, elements] of this._labels.entries()) {
+        for (const [key, elements] of this._labels.entries()) {
             const value = this._pipeline[key];
             let text = this.getLabelText(value);
             elements.forEach(e => e.innerHTML = text);
@@ -81,8 +81,8 @@ class Simulator {
     updateRegisters() {
         let content = '';
         const registers = this._pipeline.registers;
-        for(let i = 0; i < this._pipeline.registers.length; ++i) {
-            if(i < 10) {
+        for (let i = 0; i < this._pipeline.registers.length; ++i) {
+            if (i < 10) {
                 content += `x0${i}: ${registers[i]}\n`;
             } else {
                 content += `x${i}: ${registers[i]}\n`;
@@ -97,11 +97,11 @@ class Simulator {
      * @returns 
      */
     getLabelText(value) {
-        if(typeof(value) == 'boolean') {
+        if (typeof (value) == 'boolean') {
             return (value) ? '1' : '0';
-        } else if(typeof(value) == 'number') {
+        } else if (typeof (value) == 'number') {
             return signedToHex(value);
-        } else if(value != null) {
+        } else if (value != null) {
             return value.code;
         } else {
             return 'nop';
@@ -115,7 +115,7 @@ class Simulator {
     load(code, instructionSet) {
         this._pipelineUtilization = [];
         const preprocessedCode = preprocess(code);
-        switch(instructionSet) {
+        switch (instructionSet) {
             case "rv32i": {
                 try {
                     const instructions = rv32i_decodeInstructions(preprocessedCode);
@@ -146,7 +146,7 @@ class Simulator {
         this.updateRegisters();
         const utilization = this.getUtilization();
         this._pipelineUtilization.push(utilization);
-        if(this._pipelineUtilization.length > 5) {
+        if (this._pipelineUtilization.length > 5) {
             this._pipelineUtilization.shift();
         }
     }
@@ -164,7 +164,9 @@ document.querySelector('#pointerCapture').addEventListener('click', pointerCaptu
 document.querySelector('#instructionSet').addEventListener('change', instructionSetChanged);
 
 /**
- * Loads the html elements for displaying pipeline values into a dictionary
+ * Loads the HTML elements for displaying pipeline values into a dictionary.
+ * HTML elements are found using their content.
+ * A list of contents is located in the Labels list (labels.js)
  * @returns Labels
  */
 function getLabels() {
@@ -174,7 +176,7 @@ function getLabels() {
         const result = document.evaluate(xpath, document, null, XPathResult.ANY_TYPE, null);
         let elements = [];
         let element = null;
-        while((element = result.iterateNext())) {
+        while ((element = result.iterateNext())) {
             elements.push(element);
         }
         dict.set(label, elements);
@@ -184,6 +186,7 @@ function getLabels() {
 
 /**
  * Event handler for loadButton click
+ * On load button click code from the editor is loaded into the simulator
  */
 function loadClick() {
     const select = document.querySelector('#instructionSet');
@@ -193,6 +196,7 @@ function loadClick() {
 
 /**
  * Event handler for stepButton click
+ * On step button click a new cycle is executed in the simulator
  */
 function stepClick() {
     sim.step();

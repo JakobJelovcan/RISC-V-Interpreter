@@ -21,7 +21,7 @@ export class arm_instruction {
         return this._instruction;
     }
 
-    get condition () {
+    get condition() {
         return this._cond;
     }
 
@@ -57,7 +57,7 @@ export class arm_instruction {
  */
 export function decodeInstructions(instructions) {
     let decodedInstructions = [];
-    for(const instruction of instructions) {
+    for (const instruction of instructions) {
         decodedInstructions.push(decodeInstruction(instruction));
     }
     return decodedInstructions;
@@ -71,11 +71,11 @@ export function decodeInstructions(instructions) {
  */
 function decodeInstruction(code) {
     const { groups: { head, tail } } = /(?<head>[a-z]+) (?<tail>.*)/.exec(code);
-    const [ _inst, _cond, _mod ] = decodeInstructionHead(head);
+    const [_inst, _cond, _mod] = decodeInstructionHead(head);
     const inst = Instruction[_inst];
     const cond = Condition[_cond];
-    const mod  = Modifier[_mod];
-    switch(inst) {
+    const mod = Modifier[_mod];
+    switch (inst) {
         case Instruction.add:
         case Instruction.adc:
         case Instruction.sub:
@@ -96,7 +96,7 @@ function decodeInstruction(code) {
             try {
                 const { groups: { rd, rs1, rs2, immed } } = /(?<rd>[a-z][a-z0-9]+)(?:, (?<rs1>[a-z][a-z0-9]+))?(?:, (?<rs2>[a-z][a-z0-9]+))?(?:, (?<immed>-?\d+))?/.exec(tail);
                 if (rs2 == undefined && immed == undefined) {
-                    if(rs1 != undefined) {
+                    if (rs1 != undefined) {
                         return new arm_instruction(code, inst, cond, mod, Register[rd], Register[rd], Register[rs1], 0, false);
                     } else {
                         window.alert(`Not enough operands in instruction ${code}`);
@@ -120,9 +120,9 @@ function decodeInstruction(code) {
             try {
                 const { groups: { rs1, rs2, immed } } = /(?<rs1>[a-z][a-z0-9]+)(?:, (?<rs2>[a-z][a-z0-9]+))?(?:, (?<immed>-?\d+))?/.exec(tail);
                 if (rs2 == undefined && immed == undefined) {
-                    window.alert(`Not enough operands in instruction ${code}`);
-                } else if(rs2 != undefined && immed != undefined) {
-                    window.alert(`Too many operands in instruction ${code}`);
+                    window.alert(`Not enough operands in instruction ${code}`); //rs2 and immed are both not present
+                } else if (rs2 != undefined && immed != undefined) {
+                    window.alert(`Too many operands in instruction ${code}`);   //rs2 and immed are both present
                 } else {
                     return new arm_instruction(code, inst, cond, mod, Register.r0, Register[rs1], Register[rs2 ?? "r0"], Number(immed ?? 0), immed != undefined);
                 }
@@ -137,12 +137,12 @@ function decodeInstruction(code) {
             try {
                 const { groups: { rd, rs2, immed } } = /(?<rd>[a-z][a-z0-9]+)(?:, (?<rs2>[a-z][a-z0-9]+))?(?:, (?<immed>-?\d+))?/.exec(tail);
                 if (rs2 == undefined && immed == undefined) {
-                    window.alert(`Not enough operands in instruction ${code}`);
-                } else if(rs2 != undefined && immed != undefined) {
-                    window.alert(`Too many operands in instruction ${code}`);
+                    window.alert(`Not enough operands in instruction ${code}`); //rs2 and immed are both not present
+                } else if (rs2 != undefined && immed != undefined) {
+                    window.alert(`Too many operands in instruction ${code}`);   //rs2 and immed are both present
                 } else {
                     return new arm_instruction(code, inst, cond, mod, Register[rd], Register.r0, Register[rs2 ?? "r0"], Number(immed ?? 0), immed != undefined);
-                } 
+                }
             } catch {
                 throw new Error(`Invalid operands in instruction ${code}`);
             }
@@ -171,7 +171,7 @@ function decodeInstruction(code) {
             //Branch exchange:
             //  bx rm
             try {
-                const { groups: { rs1 }} = /(?<rs1>[a-z][a-z0-9]+)/.exec(tail);
+                const { groups: { rs1 } } = /(?<rs1>[a-z][a-z0-9]+)/.exec(tail);
                 return new arm_instruction(code, inst, cond, mod, Register.r0, Register[rs1], Register.r0, 0, false);
             } catch {
                 throw new Error(`Invalid operands in instruction ${code}`);
@@ -213,81 +213,89 @@ function decodeInstruction(code) {
  * @returns
  */
 function decodeInstructionHead(head) {
-    const Instructions = Object.keys(Instruction);
-    const Conditions   = Object.keys(Condition);
-    const Modifiers    = Object.keys(Modifier);
+    const Instructions = Object.keys(Instruction);  //List of instructions
+    const Conditions = Object.keys(Condition);      //List of conditions
+    const Modifiers = Object.keys(Modifier);        //List of modifiers
 
+    //The first instruction, condition and modifier that matches the front of the head is used
+    //therefore all instructions ... have to be ordered from the longest to the shortest in order
+    //to always get the longest match
+
+    //Get the instruction
     const inst = Instructions.find(i => head.startsWith(i));
-    if(inst == undefined) {
+    if (inst == undefined) {
         throw new Error(`Invalid instruction ${head}`);
     }
 
-    head = head.slice(inst.length);
-    const condition = Conditions.find(c => head.startsWith(c));
+    head = head.slice(inst.length); //Remove the instruction from the head
+    const condition = Conditions.find(c => head.startsWith(c)); //Get the conditiona
 
-    head = head.slice(condition?.length ?? 0);
-    const modifier = Modifiers.find(m => head.startsWith(m));
-    
-    head = head.slice(modifier?.length ?? 0);
-    
-    if(head.length > 0) {
+    head = head.slice(condition?.length ?? 0); //Remove the condition from the head
+    const modifier = Modifiers.find(m => head.startsWith(m)); //Get the modifier
+
+    head = head.slice(modifier?.length ?? 0); //Remove the modifier from the head
+
+    if (head.length > 0) {
+        //If there is anything left in the head throw an error
         throw new Error(`Invalid instruction ${head}`);
     }
 
+    //Default value for condition is al (always)
+    //Default value for modifier is n (none)
     return [inst, condition ?? "al", modifier ?? "n"];
 }
 
 export const Instruction = Object.freeze({
-    "add" : 0,
-    "adc" : 1,
-    "sub" : 2,
-    "rsb" : 3,
-    "mul" : 4,
-    "and" : 5,
-    "orr" : 6,
-    "eor" : 7,
-    "and" : 8,
-    "bic" : 9,
-    "str" : 10,
-    "ldr" : 11,
-    "lsl" : 12,
-    "lsr" : 13,
-    "asr" : 14,
-    "cmp" : 15,
-    "cmn" : 16,
-    "tst" : 17,
-    "teq" : 18,
-    "mov" : 19,
-    "bl"  : 20,
-    "bx"  : 21,
-    "b"   : 22,
+    "add": 0,
+    "adc": 1,
+    "sub": 2,
+    "rsb": 3,
+    "mul": 4,
+    "and": 5,
+    "orr": 6,
+    "eor": 7,
+    "and": 8,
+    "bic": 9,
+    "str": 10,
+    "ldr": 11,
+    "lsl": 12,
+    "lsr": 13,
+    "asr": 14,
+    "cmp": 15,
+    "cmn": 16,
+    "tst": 17,
+    "teq": 18,
+    "mov": 19,
+    "bl": 20,
+    "bx": 21,
+    "b": 22,
 });
 
 export const Condition = Object.freeze({
-    "eq" : 0,
-    "ne" : 1,
-    "cs" : 2,
-    "hs" : 2,
-    "cc" : 3,
-    "lo" : 3,
-    "mi" : 4,
-    "pl" : 5,
-    "vs" : 6,
-    "vc" : 7,
-    "hi" : 8,
-    "ls" : 9,
-    "ge" : 10,
-    "lt" : 11,
-    "gt" : 12,
-    "le" : 13,
-    "al" : 14,
+    "eq": 0,
+    "ne": 1,
+    "cs": 2,
+    "hs": 2,
+    "cc": 3,
+    "lo": 3,
+    "mi": 4,
+    "pl": 5,
+    "vs": 6,
+    "vc": 7,
+    "hi": 8,
+    "ls": 9,
+    "ge": 10,
+    "lt": 11,
+    "gt": 12,
+    "le": 13,
+    "al": 14,
 });
 
 export const Modifier = Object.freeze({
-    "sb" : 0,   //Signed byte
-    "sh" : 1,   //Signed halfword
-    "s"  : 2,   //Set flags
-    "b"  : 3,   //Unsigned byte
-    "h"  : 4,   //Unsigned halfword
-    "n"  : 5,   //None
+    "sb": 0,   //Signed byte
+    "sh": 1,   //Signed halfword
+    "s": 2,   //Set flags
+    "b": 3,   //Unsigned byte
+    "h": 4,   //Unsigned halfword
+    "n": 5,   //None
 });
