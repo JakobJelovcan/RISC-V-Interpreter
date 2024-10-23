@@ -80,12 +80,13 @@ class Simulator {
      */
     updateRegisters() {
         let content = '';
+        const registerPrefix = (this._pipeline.instructionSet == "rv32i") ? "x" : "r";
         const registers = this._pipeline.registers;
         for (let i = 0; i < this._pipeline.registers.length; ++i) {
             if (i < 10) {
-                content += `x0${i}: ${registers[i]}\n`;
+                content += `${registerPrefix}0${i}: ${registers[i]}\n`;
             } else {
-                content += `x${i}: ${registers[i]}\n`;
+                content += `${registerPrefix}${i}: ${registers[i]}\n`;
             }
         }
         this._registers.innerHTML = content;

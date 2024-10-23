@@ -784,4 +784,11 @@ export class rv32i_pipeline {
     get dataHazard() {
         return this._dataHazard;
     }
+
+    /**
+     * Instruction set
+     */
+    get instructionSet() {
+        return "rv32i";
+    }
 }

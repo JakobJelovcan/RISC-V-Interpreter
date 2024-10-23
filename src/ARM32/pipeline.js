@@ -1030,6 +1030,13 @@ export class arm_pipeline {
     get dataHazard() {
         return this._dataHazard;
     }
+
+    /**
+     * Instruction set
+     */
+    get instructionSet() {
+        return "arm32";
+    }
 }
 
 class cpsr {
