@@ -84,7 +84,7 @@ class Simulator {
         const registers = this._pipeline.registers;
         for (let i = 0; i < this._pipeline.registers.length; ++i) {
             if (i < 10) {
-                content += `${registerPrefix}0${i}: ${registers[i]}\n`;
+                content += ` ${registerPrefix}${i}: ${registers[i]}\n`;
             } else {
                 content += `${registerPrefix}${i}: ${registers[i]}\n`;
             }
@@ -160,7 +160,6 @@ const sim = new Simulator(labels, registers, canvas);
 document.querySelector('#loadButton').addEventListener('click', loadClick);
 document.querySelector('#editorButton').addEventListener('click', editorClick);
 document.querySelector('#stepButton').addEventListener('click', stepClick);
-document.querySelector('#registersButton').addEventListener('click', registersClick);
 document.querySelector('#pointerCapture').addEventListener('click', pointerCaptureClick);
 document.querySelector('#instructionSet').addEventListener('change', instructionSetChanged);
 
@@ -211,16 +210,6 @@ function editorClick() {
     editor.classList.toggle('open');
     const registers = document.querySelector('#registers');
     registers.classList.remove('open');
-}
-
-/**
- * Event handler for registersButton click
- */
-function registersClick() {
-    const registers = document.querySelector('#registers');
-    registers.classList.toggle('open');
-    const editor = document.querySelector('#editor');
-    editor.classList.remove('open');
 }
 
 /**
