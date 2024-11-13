@@ -37,7 +37,7 @@ class Simulator {
      * Draws the pipeline utilization graph
      */
     drawUtilization() {
-        const rectSize = 20;
+        const rectSize = 35;
         const padding = 4;
         const offsetX = 10;
         const offsetY = 10;
@@ -162,6 +162,8 @@ document.querySelector('#editorButton').addEventListener('click', editorClick);
 document.querySelector('#stepButton').addEventListener('click', stepClick);
 document.querySelector('#pointerCapture').addEventListener('click', pointerCaptureClick);
 document.querySelector('#instructionSet').addEventListener('change', instructionSetChanged);
+window.addEventListener('resize', windowSizeChanged);
+window.addEventListener('load', windowSizeChanged);
 
 /**
  * Loads the HTML elements for displaying pipeline values into a dictionary.
@@ -229,4 +231,20 @@ function instructionSetChanged() {
     const select = document.querySelector('#instructionSet');
     const editor = document.querySelector('#editor');
     sim.load(editor.value, select.value);
+}
+
+function windowSizeChanged() {
+    let pipeline_diagram = document.querySelector('.mxgraph');
+    let utilization_canvas = document.querySelector('#canvas');
+
+    let diagram_width = pipeline_diagram.scrollWidth;
+    let diagram_height = pipeline_diagram.scrollHeight;
+
+    let canvas_width = diagram_width * 0.23;
+    let canvas_height = canvas_width * 0.60;
+
+    utilization_canvas.style.width = canvas_width + 'px';
+    utilization_canvas.style.height = canvas_height + 'px';
+    utilization_canvas.style.top = diagram_height - canvas_height + 'px';
+
 }
